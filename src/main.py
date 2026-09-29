@@ -13,53 +13,168 @@ PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 TOKEN_B64 = os.getenv("YOUTUBE_TOKEN_B64", "")
 
-# Retention-first formats:
-# - one clear subject per Short
-# - 14–22 seconds
-# - 4 clips
-# - strongest/relevant clip first
-# - start clips inside the action instead of at the slow beginning
+# Prompt-first creative system.
+# Each Short starts with a strong visual prompt. Until an AI-video API is added,
+# the automation converts that prompt into precise stock-footage searches and
+# edits the closest matching clips into a retention-focused Short.
 CONTENT = {
     "asmr": {
-        "trend_keywords": ["asmr", "satisfying", "relaxing", "oddly satisfying", "soap", "sand", "texture"],
-        "formats": [
-            {"query": "soap cutting satisfying close up", "title": "Soap Cutting ASMR"},
-            {"query": "kinetic sand satisfying close up", "title": "Kinetic Sand ASMR"},
-            {"query": "satisfying texture macro close up", "title": "Visual ASMR Close-Up"},
-            {"query": "oddly satisfying close up", "title": "Oddly Satisfying ASMR"},
-        ],
+        "trend_keywords": ["asmr", "satisfying", "relaxing", "soap", "sand", "texture", "macro"],
         "hashtags": ["#Shorts", "#ASMR", "#Satisfying"],
+        "duration": (13, 19),
+        "concepts": [
+            {
+                "title": "Soap Cutting ASMR",
+                "prompt": "Extreme macro ASMR of a crisp soap block being sliced cleanly, bright texture, satisfying fragments, studio lighting, action begins immediately, tight framing, seamless rhythm.",
+                "searches": [
+                    "soap cutting close up",
+                    "satisfying soap cutting",
+                    "soap slicing macro",
+                    "soap asmr"
+                ],
+            },
+            {
+                "title": "Kinetic Sand ASMR",
+                "prompt": "Macro kinetic sand ASMR with perfectly clean cuts and compression, vivid texture, tight framing, immediate motion, no setup, hypnotic satisfying rhythm.",
+                "searches": [
+                    "kinetic sand cutting close up",
+                    "kinetic sand satisfying",
+                    "sand asmr macro",
+                    "satisfying sand"
+                ],
+            },
+            {
+                "title": "Visual ASMR Close-Up",
+                "prompt": "Ultra-close visual ASMR of glossy material folding and stretching, clean background, controlled movement, rich texture, immediate action, hypnotic loop.",
+                "searches": [
+                    "satisfying texture close up",
+                    "slime macro satisfying",
+                    "oddly satisfying macro",
+                    "visual asmr texture"
+                ],
+            },
+        ],
     },
     "color_mixing": {
         "trend_keywords": ["paint", "painting", "color", "colour", "mixing", "art", "palette", "acrylic"],
-        "formats": [
-            {"query": "paint mixing palette knife close up", "title": "Palette Knife Color Mixing"},
-            {"query": "acrylic paint mixing close up", "title": "Acrylic Color Mixing ASMR"},
-            {"query": "artist mixing paint palette knife", "title": "Satisfying Paint Mixing"},
-            {"query": "paint texture palette knife close up", "title": "Paint Mixing Close-Up"},
-        ],
         "hashtags": ["#Shorts", "#ColorMixing", "#ASMR", "#Art"],
+        "duration": (14, 20),
+        "concepts": [
+            {
+                "title": "Palette Knife Color Mixing",
+                "prompt": "Extreme macro shot of thick cobalt blue and pearl white paint being folded together with a steel palette knife, glossy texture, studio lighting, satisfying slow movement, action starts instantly.",
+                "searches": [
+                    "paint mixing palette knife close up",
+                    "blue white paint mixing",
+                    "palette knife paint mixing",
+                    "paint texture close up"
+                ],
+            },
+            {
+                "title": "Acrylic Color Mixing ASMR",
+                "prompt": "Macro acrylic paint mixing with vivid red, yellow and white pigments blending into a smooth gradient, palette knife scraping through thick glossy paint, crisp studio close-up.",
+                "searches": [
+                    "acrylic paint mixing close up",
+                    "color mixing paint",
+                    "artist mixing acrylic paint",
+                    "palette knife acrylic"
+                ],
+            },
+            {
+                "title": "Satisfying Paint Blend",
+                "prompt": "Rich purple and metallic silver paint slowly blending under a palette knife, glossy ridges, extreme macro texture, clean dark background, controlled satisfying motion.",
+                "searches": [
+                    "purple paint mixing",
+                    "metallic paint palette knife",
+                    "paint mixing macro",
+                    "palette knife painting close up"
+                ],
+            },
+        ],
     },
     "exotic_fruit": {
         "trend_keywords": ["fruit", "food", "cutting", "mango", "pineapple", "papaya", "dragon fruit", "tropical"],
-        "formats": [
-            {"query": "dragon fruit cutting close up", "title": "Dragon Fruit Cutting ASMR"},
-            {"query": "mango cutting close up", "title": "Mango Cutting ASMR"},
-            {"query": "pineapple cutting close up", "title": "Pineapple Cutting ASMR"},
-            {"query": "papaya cutting close up", "title": "Papaya Cutting ASMR"},
-            {"query": "tropical fruit cutting close up", "title": "Exotic Fruit Cutting ASMR"},
-        ],
         "hashtags": ["#Shorts", "#FruitCutting", "#ASMR", "#Satisfying"],
+        "duration": (12, 18),
+        "concepts": [
+            {
+                "title": "Dragon Fruit Cutting ASMR",
+                "prompt": "Macro ASMR shot of a chilled dragon fruit being sliced open with a razor-sharp knife, vivid pink skin and white seeded flesh, clean cutting sounds, black background, immediate first cut.",
+                "searches": [
+                    "dragon fruit cutting close up",
+                    "dragon fruit slicing",
+                    "pitaya cutting",
+                    "exotic fruit cutting"
+                ],
+            },
+            {
+                "title": "Mango Cutting ASMR",
+                "prompt": "Juicy ripe mango cut into perfect cubes in extreme close-up, glossy golden flesh, clean knife work, bright studio lighting, satisfying first cut immediately.",
+                "searches": [
+                    "mango cutting close up",
+                    "mango slicing",
+                    "mango cubes cutting",
+                    "tropical fruit cutting"
+                ],
+            },
+            {
+                "title": "Pineapple Cutting ASMR",
+                "prompt": "Extreme close-up of a ripe pineapple being peeled and sliced with fast precise knife work, bright yellow texture, crisp satisfying cuts, action starts in the first frame.",
+                "searches": [
+                    "pineapple cutting close up",
+                    "pineapple slicing",
+                    "pineapple peeling",
+                    "fruit cutting asmr"
+                ],
+            },
+            {
+                "title": "Exotic Fruit Cutting ASMR",
+                "prompt": "A colorful exotic tropical fruit cut open in macro close-up, unusual interior revealed instantly, vivid color, clean knife motion, satisfying texture and seamless pacing.",
+                "searches": [
+                    "exotic fruit cutting close up",
+                    "tropical fruit cutting",
+                    "rare fruit cutting",
+                    "fruit slicing macro"
+                ],
+            },
+        ],
     },
     "exotic_cars": {
         "trend_keywords": ["car", "cars", "supercar", "sports car", "luxury car", "automotive", "engine"],
-        "formats": [
-            {"query": "supercar driving cinematic vertical", "title": "Supercar Cinematic"},
-            {"query": "exotic sports car close up", "title": "Exotic Car Details"},
-            {"query": "luxury sports car interior close up", "title": "Luxury Car Interior"},
-            {"query": "supercar detail cinematic", "title": "Supercar Details"},
-        ],
         "hashtags": ["#Shorts", "#Supercars", "#ExoticCars", "#Cars"],
+        "duration": (12, 18),
+        "concepts": [
+            {
+                "title": "Supercar Cinematic",
+                "prompt": "Cinematic vertical montage of an exotic supercar at night, low camera angle, headlights flare, glossy body reflections, fast rolling shot, premium commercial look, strongest motion first.",
+                "searches": [
+                    "supercar driving cinematic",
+                    "exotic sports car night",
+                    "luxury car rolling shot",
+                    "sports car cinematic"
+                ],
+            },
+            {
+                "title": "Exotic Car Details",
+                "prompt": "Macro cinematic details of an exotic car: carbon fiber, wheel, brake caliper, headlight and glossy paint, dramatic reflections, premium studio look, fast precise cuts.",
+                "searches": [
+                    "supercar detail close up",
+                    "luxury car detail",
+                    "sports car wheel close up",
+                    "exotic car close up"
+                ],
+            },
+            {
+                "title": "Luxury Car Interior",
+                "prompt": "Premium exotic car interior montage with steering wheel, digital cockpit, leather stitching and ambient lighting, shallow depth of field, clean cinematic motion, immediate visual hook.",
+                "searches": [
+                    "luxury car interior close up",
+                    "sports car interior",
+                    "supercar cockpit",
+                    "car interior cinematic"
+                ],
+            },
+        ],
     },
 }
 
@@ -142,16 +257,16 @@ def choose_topic(titles):
         for topic, data in CONTENT.items()
     }
 
-    # Trends influence the choice, but every format still gets a chance.
     weighted = []
     for topic, score in scores.items():
+        # Every niche stays active, while current YouTube signals influence frequency.
         weighted.extend([topic] * max(2, min(10, score + 2)))
 
     return random.choice(weighted or list(CONTENT)), scores
 
 
-def choose_format(topic):
-    return random.choice(CONTENT[topic]["formats"])
+def choose_concept(topic):
+    return random.choice(CONTENT[topic]["concepts"])
 
 
 def search_pexels(query, per_page=24):
@@ -182,26 +297,23 @@ def choose_file(video):
         w = file_info.get("width") or 0
         h = file_info.get("height") or 0
         portrait_penalty = 0 if h >= w else 100
-        resolution_penalty = 0 if min(w, h) >= 720 else 5
-        width_penalty = abs((w or 720) - 1080) / 1000
-        return portrait_penalty + resolution_penalty + width_penalty
+        low_res_penalty = 0 if min(w, h) >= 720 else 10
+        target_penalty = abs((w or 720) - 1080) / 1000
+        return portrait_penalty + low_res_penalty + target_penalty
 
     return sorted(files, key=rank)[0]
 
 
-def download_clips(topic, selected_format, work, wanted=4):
-    # Search the exact subject first so each Short feels coherent.
-    queries = [selected_format["query"]]
-    queries.extend(
-        f["query"] for f in CONTENT[topic]["formats"]
-        if f["query"] != selected_format["query"]
-    )
-
+def collect_candidates(concept):
     candidates = []
     seen_ids = set()
 
-    for query_index, query in enumerate(queries):
-        videos = search_pexels(query)
+    for query_index, query in enumerate(concept["searches"]):
+        try:
+            videos = search_pexels(query)
+        except Exception:
+            continue
+
         for rank_index, video in enumerate(videos):
             video_id = video.get("id")
             if not video_id or video_id in seen_ids:
@@ -212,7 +324,7 @@ def download_clips(topic, selected_format, work, wanted=4):
                 continue
 
             duration = float(video.get("duration") or 0)
-            if duration and duration < 3.0:
+            if duration and duration < 2.5:
                 continue
 
             seen_ids.add(video_id)
@@ -223,26 +335,38 @@ def download_clips(topic, selected_format, work, wanted=4):
                 "rank_index": rank_index,
             })
 
-        if len(candidates) >= 10:
+        if len(candidates) >= 16:
             break
 
-    if len(candidates) < 3:
-        raise RuntimeError("Not enough suitable Pexels videos found.")
+    return candidates
 
-    # Hook: choose from the most relevant top results instead of random stock footage.
+
+def download_clips(concept, work, wanted=4):
+    candidates = collect_candidates(concept)
+    if len(candidates) < 3:
+        raise RuntimeError("Not enough suitable Pexels videos found for the creative prompt.")
+
+    # The hook comes from the closest search to the prompt and from the top results.
     exact = [c for c in candidates if c["query_index"] == 0]
-    hook_pool = exact[:4] if exact else candidates[:4]
+    hook_pool = exact[:3] if exact else candidates[:3]
     hook = random.choice(hook_pool)
 
-    remaining = [c for c in candidates if c["video"].get("id") != hook["video"].get("id")]
-    # Prefer relevant results but still vary the montage.
+    remaining = [
+        c for c in candidates
+        if c["video"].get("id") != hook["video"].get("id")
+    ]
     remaining.sort(key=lambda c: (c["query_index"], c["rank_index"]))
-    body_pool = remaining[:14]
-    random.shuffle(body_pool)
-    selected = [hook] + body_pool[: max(0, wanted - 1)]
 
-    credits = []
+    # Keep the rest highly relevant, with a little variety.
+    body_pool = remaining[:12]
+    if len(body_pool) > wanted - 1:
+        body = random.sample(body_pool, wanted - 1)
+    else:
+        body = body_pool[: wanted - 1]
+
+    selected = [hook] + body
     paths = []
+    credits = []
 
     for index, item in enumerate(selected, start=1):
         output = work / f"clip_src_{index}.mp4"
@@ -282,38 +406,34 @@ def action_start(path, seconds, hook=False):
     if duration <= seconds + 0.25:
         return 0.0
 
-    # Stock footage often has a slow opening. Start deeper inside the clip.
-    low = 0.28 if hook else 0.18
-    high = 0.58 if hook else 0.52
+    # Skip stock-footage setup and start where action is likely already happening.
+    low = 0.30 if hook else 0.18
+    high = 0.62 if hook else 0.55
     start = duration * random.uniform(low, high)
     return max(0.0, min(start, duration - seconds - 0.15))
 
 
 def normalize_clip(src, dst, seconds, hook=False):
-    start = action_start(src, seconds, hook=hook)
+    start = action_start(src, seconds, hook)
     video_filter = (
         "scale=1080:1920:force_original_aspect_ratio=increase,"
         "crop=1080:1920,fps=30,format=yuv420p"
     )
 
-    common = [
-        "ffmpeg", "-y",
-        "-ss", f"{start:.2f}",
-        "-i", str(src),
-    ]
+    base = ["ffmpeg", "-y", "-ss", f"{start:.2f}", "-i", str(src)]
 
     if has_audio(src):
-        run(common + [
+        run(base + [
             "-t", f"{seconds:.2f}",
             "-vf", video_filter,
-            "-af", "volume=1.10,alimiter=limit=0.95",
+            "-af", "volume=1.08,alimiter=limit=0.95",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
             "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
             "-movflags", "+faststart",
             str(dst)
         ])
     else:
-        run(common + [
+        run(base + [
             "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
             "-t", f"{seconds:.2f}",
             "-map", "0:v:0", "-map", "1:a:0",
@@ -325,12 +445,13 @@ def normalize_clip(src, dst, seconds, hook=False):
         ])
 
 
-def make_video(clips, work):
-    target_duration = random.randint(14, 22)
+def make_video(clips, topic, work):
+    low, high = CONTENT[topic]["duration"]
+    target_duration = random.randint(low, high)
 
-    # Hook is deliberately short so the visual changes quickly.
-    hook_seconds = min(3.0, max(2.2, target_duration * 0.16))
-    body_total = target_duration - hook_seconds
+    # Make the opening visual change quickly to reduce swipe-away.
+    hook_seconds = random.uniform(1.7, 2.4)
+    body_total = max(1.0, target_duration - hook_seconds)
     body_seconds = body_total / max(1, len(clips) - 1)
 
     normalized = []
@@ -381,7 +502,6 @@ def upload(yt, path, title, description, tags):
         media_body=media,
         notifySubscribers=False
     ).execute()
-
     return result.get("id", "")
 
 
@@ -393,22 +513,16 @@ def main():
 
     current_titles = trending_titles(yt_public)
     topic, scores = choose_topic(current_titles)
-    selected_format = choose_format(topic)
+    concept = choose_concept(topic)
 
-    title = selected_format["title"]
+    title = concept["title"]
     hashtags = CONTENT[topic]["hashtags"]
 
     with tempfile.TemporaryDirectory() as td:
         work = Path(td)
 
-        clips, credits = download_clips(
-            topic,
-            selected_format,
-            work,
-            wanted=4
-        )
-
-        final, duration = make_video(clips, work)
+        clips, credits = download_clips(concept, work, wanted=4)
+        final, duration = make_video(clips, topic, work)
 
         credit_lines = [
             f"Footage by {credit['name']} on Pexels: {credit['url']}"
@@ -416,7 +530,7 @@ def main():
         ]
 
         description = (
-            f"{title}. Original vertical edit using licensed stock footage. "
+            f"{title}. Original prompt-directed vertical edit using licensed stock footage. "
             "No trending video is copied.\n\n"
             + "\n".join(credit_lines)
             + "\n\nPhotos/videos provided by Pexels.\n\n"
@@ -425,7 +539,7 @@ def main():
 
         tags = [tag.lstrip("#") for tag in hashtags] + [
             topic.replace("_", " "),
-            selected_format["title"],
+            title,
             "satisfying",
             "shorts"
         ]
@@ -436,8 +550,9 @@ def main():
         "status": "uploaded",
         "video_id": video_id,
         "topic": topic,
-        "format": selected_format["query"],
         "title": title,
+        "creative_prompt": concept["prompt"],
+        "searches": concept["searches"],
         "duration_seconds": duration,
         "region": REGION_CODE,
         "privacy": YOUTUBE_PRIVACY,

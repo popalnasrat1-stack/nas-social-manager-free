@@ -22,7 +22,7 @@ jobs:
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       REGION_CODE: AE
-      YOUTUBE_PRIVACY: private
+      YOUTUBE_PRIVACY: puplic
 
     steps:
       - name: Check out repository

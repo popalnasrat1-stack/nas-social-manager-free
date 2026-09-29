@@ -445,6 +445,43 @@ def normalize_clip(src, dst, seconds, hook=False):
         ])
 
 
+def make_vibe_audio(topic, duration, work):
+    """
+    Create an original low-volume sound bed with FFmpeg.
+    It is synthesized inside this workflow rather than downloaded from a song library.
+    Stock-clip audio is kept when it exists, so cutting/engine sounds can still come through.
+    """
+    profiles = {
+        "asmr": {"freq": 174, "noise": "pink", "amp": 0.010, "mix": 0.22},
+        "color_mixing": {"freq": 220, "noise": "pink", "amp": 0.011, "mix": 0.20},
+        "exotic_fruit": {"freq": 330, "noise": "white", "amp": 0.007, "mix": 0.17},
+        "exotic_cars": {"freq": 55, "noise": "brown", "amp": 0.013, "mix": 0.28},
+    }
+    p = profiles[topic]
+    out = work / "vibe.m4a"
+    fade_out = max(0.0, duration - 0.45)
+
+    run([
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i",
+        f"sine=frequency={p['freq']}:sample_rate=44100:duration={duration}",
+        "-f", "lavfi", "-i",
+        f"anoisesrc=color={p['noise']}:amplitude={p['amp']}:sample_rate=44100:duration={duration}",
+        "-filter_complex",
+        (
+            "[0:a]volume=0.035,lowpass=f=1200[tone];"
+            "[1:a]highpass=f=80,lowpass=f=6500[noise];"
+            "[tone][noise]amix=inputs=2:duration=longest:normalize=0,"
+            f"afade=t=in:st=0:d=0.20,afade=t=out:st={fade_out:.2f}:d=0.45,"
+            "alimiter=limit=0.80[a]"
+        ),
+        "-map", "[a]",
+        "-c:a", "aac", "-b:a", "128k",
+        str(out)
+    ])
+    return out, p["mix"]
+
+
 def make_video(clips, topic, work):
     low, high = CONTENT[topic]["duration"]
     target_duration = random.randint(low, high)
@@ -467,13 +504,35 @@ def make_video(clips, topic, work):
         encoding="utf-8"
     )
 
-    final = work / "final.mp4"
+    visual = work / "visual.mp4"
     run([
         "ffmpeg", "-y",
         "-f", "concat", "-safe", "0", "-i", str(concat_file),
         "-t", str(target_duration),
         "-c", "copy",
         "-movflags", "+faststart",
+        str(visual)
+    ])
+
+    # Always add a subtle vibe-matched generated bed, while preserving source audio.
+    vibe, vibe_mix = make_vibe_audio(topic, target_duration, work)
+    final = work / "final.mp4"
+    run([
+        "ffmpeg", "-y",
+        "-i", str(visual),
+        "-i", str(vibe),
+        "-filter_complex",
+        (
+            "[0:a]volume=1.0[original];"
+            f"[1:a]volume={vibe_mix:.2f}[bed];"
+            "[original][bed]amix=inputs=2:duration=first:normalize=0,"
+            "alimiter=limit=0.95[a]"
+        ),
+        "-map", "0:v:0",
+        "-map", "[a]",
+        "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "160k",
+        "-shortest", "-movflags", "+faststart",
         str(final)
     ])
 
@@ -531,7 +590,8 @@ def main():
 
         description = (
             f"{title}. Original prompt-directed vertical edit using licensed stock footage. "
-            "No trending video is copied.\n\n"
+            "No trending video is copied. The background sound bed is generated inside the workflow; "
+            "original stock-clip audio is kept when available.\n\n"
             + "\n".join(credit_lines)
             + "\n\nPhotos/videos provided by Pexels.\n\n"
             + " ".join(hashtags)

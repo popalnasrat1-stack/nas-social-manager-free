@@ -1,12 +1,13 @@
-name: Free Hourly YouTube Short
+name: YouTube Shorts Automation
 
 "on":
   workflow_dispatch: {}
   schedule:
-    - cron: "17 * * * *"
+    # Six uploads per day. Scheduled GitHub Actions may start a few minutes late.
+    - cron: "17 */4 * * *"
 
 concurrency:
-  group: hourly-youtube-short
+  group: youtube-shorts-automation
   cancel-in-progress: false
 
 permissions:
@@ -40,9 +41,6 @@ jobs:
 
       - name: Install Python packages
         run: pip install -r requirements.txt
-
-      - name: Download Piper voice
-        run: python -m piper.download_voices en_US-lessac-medium
 
       - name: Create and upload one Short
         run: python src/main.py

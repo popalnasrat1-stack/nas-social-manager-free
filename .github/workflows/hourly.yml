@@ -41,5 +41,8 @@ jobs:
       - name: Install Python packages
         run: pip install -r requirements.txt
 
+      - name: Download Piper voice
+        run: python -m piper.download_voices en_US-lessac-medium
+
       - name: Create and upload one Short
         run: python src/main.py

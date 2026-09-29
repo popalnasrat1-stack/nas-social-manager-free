@@ -13,78 +13,53 @@ PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 TOKEN_B64 = os.getenv("YOUTUBE_TOKEN_B64", "")
 
+# Retention-first formats:
+# - one clear subject per Short
+# - 14–22 seconds
+# - 4 clips
+# - strongest/relevant clip first
+# - start clips inside the action instead of at the slow beginning
 CONTENT = {
     "asmr": {
-        "trend_keywords": ["asmr", "satisfying", "relaxing", "oddly satisfying", "slime", "soap", "texture"],
-        "pexels": [
-            "asmr satisfying close up",
-            "satisfying texture close up",
-            "slime close up",
-            "soap cutting",
-            "kinetic sand",
-            "relaxing macro"
+        "trend_keywords": ["asmr", "satisfying", "relaxing", "oddly satisfying", "soap", "sand", "texture"],
+        "formats": [
+            {"query": "soap cutting satisfying close up", "title": "Soap Cutting ASMR"},
+            {"query": "kinetic sand satisfying close up", "title": "Kinetic Sand ASMR"},
+            {"query": "satisfying texture macro close up", "title": "Visual ASMR Close-Up"},
+            {"query": "oddly satisfying close up", "title": "Oddly Satisfying ASMR"},
         ],
-        "hashtags": ["#Shorts", "#ASMR", "#Satisfying", "#Relaxing"],
-        "titles": [
-            "Satisfying ASMR Close-Ups",
-            "60 Seconds of Visual ASMR",
-            "Satisfying Details You Can Watch on Repeat"
-        ],
-        "duration": (52, 66),
+        "hashtags": ["#Shorts", "#ASMR", "#Satisfying"],
     },
     "color_mixing": {
         "trend_keywords": ["paint", "painting", "color", "colour", "mixing", "art", "palette", "acrylic"],
-        "pexels": [
-            "paint mixing palette knife",
-            "color mixing paint",
-            "acrylic paint palette knife",
-            "artist mixing paint",
-            "paint texture close up",
-            "palette knife painting"
+        "formats": [
+            {"query": "paint mixing palette knife close up", "title": "Palette Knife Color Mixing"},
+            {"query": "acrylic paint mixing close up", "title": "Acrylic Color Mixing ASMR"},
+            {"query": "artist mixing paint palette knife", "title": "Satisfying Paint Mixing"},
+            {"query": "paint texture palette knife close up", "title": "Paint Mixing Close-Up"},
         ],
-        "hashtags": ["#Shorts", "#ColorMixing", "#ASMR", "#Satisfying", "#Art"],
-        "titles": [
-            "Color Mixing With a Palette Knife",
-            "Satisfying Paint Mixing Close-Up",
-            "Watching These Colors Blend Is So Satisfying"
-        ],
-        "duration": (52, 68),
+        "hashtags": ["#Shorts", "#ColorMixing", "#ASMR", "#Art"],
     },
     "exotic_fruit": {
         "trend_keywords": ["fruit", "food", "cutting", "mango", "pineapple", "papaya", "dragon fruit", "tropical"],
-        "pexels": [
-            "exotic fruit cutting",
-            "tropical fruit cutting",
-            "dragon fruit cutting",
-            "mango cutting close up",
-            "pineapple cutting",
-            "papaya cutting"
+        "formats": [
+            {"query": "dragon fruit cutting close up", "title": "Dragon Fruit Cutting ASMR"},
+            {"query": "mango cutting close up", "title": "Mango Cutting ASMR"},
+            {"query": "pineapple cutting close up", "title": "Pineapple Cutting ASMR"},
+            {"query": "papaya cutting close up", "title": "Papaya Cutting ASMR"},
+            {"query": "tropical fruit cutting close up", "title": "Exotic Fruit Cutting ASMR"},
         ],
-        "hashtags": ["#Shorts", "#FruitCutting", "#ASMR", "#ExoticFruit", "#Satisfying"],
-        "titles": [
-            "Exotic Fruit Cutting ASMR",
-            "Satisfying Tropical Fruit Cutting",
-            "Exotic Fruits, Clean Cuts, Pure Satisfaction"
-        ],
-        "duration": (52, 68),
+        "hashtags": ["#Shorts", "#FruitCutting", "#ASMR", "#Satisfying"],
     },
     "exotic_cars": {
         "trend_keywords": ["car", "cars", "supercar", "sports car", "luxury car", "automotive", "engine"],
-        "pexels": [
-            "exotic sports car",
-            "luxury sports car",
-            "supercar driving",
-            "sports car cinematic",
-            "luxury car interior",
-            "sports car detail"
+        "formats": [
+            {"query": "supercar driving cinematic vertical", "title": "Supercar Cinematic"},
+            {"query": "exotic sports car close up", "title": "Exotic Car Details"},
+            {"query": "luxury sports car interior close up", "title": "Luxury Car Interior"},
+            {"query": "supercar detail cinematic", "title": "Supercar Details"},
         ],
-        "hashtags": ["#Shorts", "#Supercars", "#ExoticCars", "#Cars", "#CarMontage"],
-        "titles": [
-            "Exotic Car Montage",
-            "Supercar Details in 60 Seconds",
-            "A Clean Exotic Car Montage"
-        ],
-        "duration": (48, 62),
+        "hashtags": ["#Shorts", "#Supercars", "#ExoticCars", "#Cars"],
     },
 }
 
@@ -101,6 +76,17 @@ def run(cmd):
     if p.returncode != 0:
         raise RuntimeError(p.stderr[-5000:])
     return p.stdout
+
+
+def media_duration(path):
+    try:
+        out = run([
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", str(path)
+        ])
+        return max(0.0, float(out.strip()))
+    except Exception:
+        return 0.0
 
 
 def write_token():
@@ -129,7 +115,6 @@ def youtube_public_client():
 
 def trending_titles(yt):
     titles = []
-    # Entertainment, Howto & Style, Autos & Vehicles, People & Blogs.
     for category_id in ["24", "26", "2", "22"]:
         try:
             resp = yt.videos().list(
@@ -152,30 +137,36 @@ def trending_titles(yt):
 
 def choose_topic(titles):
     joined = " ".join(titles).lower()
-    scores = {}
-    for topic, data in CONTENT.items():
-        scores[topic] = sum(joined.count(k) for k in data["trend_keywords"])
+    scores = {
+        topic: sum(joined.count(k) for k in data["trend_keywords"])
+        for topic, data in CONTENT.items()
+    }
 
-    best_score = max(scores.values()) if scores else 0
-    if best_score == 0:
-        topic = random.choice(list(CONTENT))
-    else:
-        # Bias toward current signals while still allowing variety.
-        weighted = []
-        for topic_name, score in scores.items():
-            weighted.extend([topic_name] * max(1, score + 1))
-        topic = random.choice(weighted)
+    # Trends influence the choice, but every format still gets a chance.
+    weighted = []
+    for topic, score in scores.items():
+        weighted.extend([topic] * max(2, min(10, score + 2)))
 
-    return topic, scores
+    return random.choice(weighted or list(CONTENT)), scores
 
 
-def search_pexels(query, per_page=18):
+def choose_format(topic):
+    return random.choice(CONTENT[topic]["formats"])
+
+
+def search_pexels(query, per_page=24):
     if not PEXELS_API_KEY:
         raise RuntimeError("PEXELS_API_KEY secret is missing.")
+
     response = requests.get(
         "https://api.pexels.com/v1/videos/search",
         headers={"Authorization": PEXELS_API_KEY},
-        params={"query": query, "per_page": per_page, "orientation": "portrait"},
+        params={
+            "query": query,
+            "per_page": per_page,
+            "orientation": "portrait",
+            "size": "medium",
+        },
         timeout=30,
     )
     response.raise_for_status()
@@ -190,26 +181,28 @@ def choose_file(video):
     def rank(file_info):
         w = file_info.get("width") or 0
         h = file_info.get("height") or 0
-        portrait_penalty = 0 if h >= w else 10
-        width_penalty = abs((w or 720) - 720) / 1000
-        return portrait_penalty + width_penalty
+        portrait_penalty = 0 if h >= w else 100
+        resolution_penalty = 0 if min(w, h) >= 720 else 5
+        width_penalty = abs((w or 720) - 1080) / 1000
+        return portrait_penalty + resolution_penalty + width_penalty
 
     return sorted(files, key=rank)[0]
 
 
-def download_clips(topic, work, wanted=6):
-    queries = CONTENT[topic]["pexels"][:]
-    random.shuffle(queries)
+def download_clips(topic, selected_format, work, wanted=4):
+    # Search the exact subject first so each Short feels coherent.
+    queries = [selected_format["query"]]
+    queries.extend(
+        f["query"] for f in CONTENT[topic]["formats"]
+        if f["query"] != selected_format["query"]
+    )
 
-    selected = []
+    candidates = []
     seen_ids = set()
-    credits = []
 
-    for query in queries:
+    for query_index, query in enumerate(queries):
         videos = search_pexels(query)
-        random.shuffle(videos)
-
-        for video in videos:
+        for rank_index, video in enumerate(videos):
             video_id = video.get("id")
             if not video_id or video_id in seen_ids:
                 continue
@@ -218,25 +211,39 @@ def download_clips(topic, work, wanted=6):
             if not file_info or not file_info.get("link"):
                 continue
 
-            seen_ids.add(video_id)
-            selected.append({"file": file_info, "video": video})
+            duration = float(video.get("duration") or 0)
+            if duration and duration < 3.0:
+                continue
 
-            user = video.get("user") or {}
-            credits.append({
-                "name": user.get("name", "Pexels contributor"),
-                "url": video.get("url") or user.get("url") or "https://www.pexels.com/"
+            seen_ids.add(video_id)
+            candidates.append({
+                "file": file_info,
+                "video": video,
+                "query_index": query_index,
+                "rank_index": rank_index,
             })
 
-            if len(selected) >= wanted:
-                break
-
-        if len(selected) >= wanted:
+        if len(candidates) >= 10:
             break
 
-    if len(selected) < 3:
+    if len(candidates) < 3:
         raise RuntimeError("Not enough suitable Pexels videos found.")
 
+    # Hook: choose from the most relevant top results instead of random stock footage.
+    exact = [c for c in candidates if c["query_index"] == 0]
+    hook_pool = exact[:4] if exact else candidates[:4]
+    hook = random.choice(hook_pool)
+
+    remaining = [c for c in candidates if c["video"].get("id") != hook["video"].get("id")]
+    # Prefer relevant results but still vary the montage.
+    remaining.sort(key=lambda c: (c["query_index"], c["rank_index"]))
+    body_pool = remaining[:14]
+    random.shuffle(body_pool)
+    selected = [hook] + body_pool[: max(0, wanted - 1)]
+
+    credits = []
     paths = []
+
     for index, item in enumerate(selected, start=1):
         output = work / f"clip_src_{index}.mp4"
         with requests.get(item["file"]["link"], stream=True, timeout=120) as response:
@@ -246,6 +253,13 @@ def download_clips(topic, work, wanted=6):
                     if chunk:
                         handle.write(chunk)
         paths.append(output)
+
+        video = item["video"]
+        user = video.get("user") or {}
+        credits.append({
+            "name": user.get("name", "Pexels contributor"),
+            "url": video.get("url") or user.get("url") or "https://www.pexels.com/"
+        })
 
     return paths, credits
 
@@ -263,48 +277,67 @@ def has_audio(path):
     return bool(result.stdout.strip())
 
 
-def normalize_clip(src, dst, seconds):
+def action_start(path, seconds, hook=False):
+    duration = media_duration(path)
+    if duration <= seconds + 0.25:
+        return 0.0
+
+    # Stock footage often has a slow opening. Start deeper inside the clip.
+    low = 0.28 if hook else 0.18
+    high = 0.58 if hook else 0.52
+    start = duration * random.uniform(low, high)
+    return max(0.0, min(start, duration - seconds - 0.15))
+
+
+def normalize_clip(src, dst, seconds, hook=False):
+    start = action_start(src, seconds, hook=hook)
     video_filter = (
         "scale=1080:1920:force_original_aspect_ratio=increase,"
         "crop=1080:1920,fps=30,format=yuv420p"
     )
 
+    common = [
+        "ffmpeg", "-y",
+        "-ss", f"{start:.2f}",
+        "-i", str(src),
+    ]
+
     if has_audio(src):
-        run([
-            "ffmpeg", "-y",
-            "-stream_loop", "-1", "-i", str(src),
+        run(common + [
             "-t", f"{seconds:.2f}",
             "-vf", video_filter,
-            "-af", "volume=1.05",
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            "-af", "volume=1.10,alimiter=limit=0.95",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
             "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
             "-movflags", "+faststart",
             str(dst)
         ])
     else:
-        run([
-            "ffmpeg", "-y",
-            "-stream_loop", "-1", "-i", str(src),
+        run(common + [
             "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
             "-t", f"{seconds:.2f}",
             "-map", "0:v:0", "-map", "1:a:0",
             "-vf", video_filter,
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
             "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
             "-shortest", "-movflags", "+faststart",
             str(dst)
         ])
 
 
-def make_video(clips, topic, work):
-    minimum, maximum = CONTENT[topic]["duration"]
-    target_duration = random.randint(minimum, maximum)
-    per_clip = target_duration / len(clips)
+def make_video(clips, work):
+    target_duration = random.randint(14, 22)
+
+    # Hook is deliberately short so the visual changes quickly.
+    hook_seconds = min(3.0, max(2.2, target_duration * 0.16))
+    body_total = target_duration - hook_seconds
+    body_seconds = body_total / max(1, len(clips) - 1)
 
     normalized = []
     for index, src in enumerate(clips, start=1):
+        seconds = hook_seconds if index == 1 else body_seconds
         dst = work / f"clip_{index}.mp4"
-        normalize_clip(src, dst, per_clip)
+        normalize_clip(src, dst, seconds, hook=(index == 1))
         normalized.append(dst)
 
     concat_file = work / "concat.txt"
@@ -322,6 +355,7 @@ def make_video(clips, topic, work):
         "-movflags", "+faststart",
         str(final)
     ])
+
     return final, target_duration
 
 
@@ -347,6 +381,7 @@ def upload(yt, path, title, description, tags):
         media_body=media,
         notifySubscribers=False
     ).execute()
+
     return result.get("id", "")
 
 
@@ -358,14 +393,22 @@ def main():
 
     current_titles = trending_titles(yt_public)
     topic, scores = choose_topic(current_titles)
+    selected_format = choose_format(topic)
 
-    title = random.choice(CONTENT[topic]["titles"])
+    title = selected_format["title"]
     hashtags = CONTENT[topic]["hashtags"]
 
     with tempfile.TemporaryDirectory() as td:
         work = Path(td)
-        clips, credits = download_clips(topic, work, wanted=6)
-        final, duration = make_video(clips, topic, work)
+
+        clips, credits = download_clips(
+            topic,
+            selected_format,
+            work,
+            wanted=4
+        )
+
+        final, duration = make_video(clips, work)
 
         credit_lines = [
             f"Footage by {credit['name']} on Pexels: {credit['url']}"
@@ -373,10 +416,8 @@ def main():
         ]
 
         description = (
-            "Original vertical edit using licensed stock footage. "
-            "The content format is selected using broad signals from YouTube's current popular videos "
-            f"for region {REGION_CODE}; no trending video is copied. "
-            "Original audio from stock clips is kept when available.\n\n"
+            f"{title}. Original vertical edit using licensed stock footage. "
+            "No trending video is copied.\n\n"
             + "\n".join(credit_lines)
             + "\n\nPhotos/videos provided by Pexels.\n\n"
             + " ".join(hashtags)
@@ -384,8 +425,8 @@ def main():
 
         tags = [tag.lstrip("#") for tag in hashtags] + [
             topic.replace("_", " "),
+            selected_format["title"],
             "satisfying",
-            "vertical video",
             "shorts"
         ]
 
@@ -395,6 +436,7 @@ def main():
         "status": "uploaded",
         "video_id": video_id,
         "topic": topic,
+        "format": selected_format["query"],
         "title": title,
         "duration_seconds": duration,
         "region": REGION_CODE,

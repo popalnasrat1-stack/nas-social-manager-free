@@ -212,10 +212,21 @@ def download_clips(topic, work):
     return paths, credits
 
 def make_voice(script, work):
+    """
+    Free neural TTS using Piper instead of espeak-ng.
+    Voice: en_US-lessac-medium
+    """
     wav = work / "voice.wav"
-    # Free/offline text to speech.
-    run(["espeak-ng", "-s", "170", "-v", "en-us", "-w", str(wav), script])
+
+    # Piper auto-downloads this voice the first time it runs.
+    run([
+        "python", "-m", "piper",
+        "-m", "en_US-lessac-medium",
+        "-f", str(wav),
+        "--", script
+    ])
     return wav
+
 
 def audio_duration(path):
     out = run([

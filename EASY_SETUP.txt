@@ -1,0 +1,18 @@
+NAS SOCIAL MANAGER V4 FREE — SIMPLE SETUP
+
+This is the no-paid-AI version.
+
+YOU NEED:
+1. Free GitHub account
+2. Free Pexels API key
+3. Your existing youtube_token.json
+
+DO NOT put youtube_token.json into GitHub.
+
+FIRST TEST:
+- Use YOUTUBE_PRIVACY = private
+- Run the GitHub Action manually once
+- Check YouTube Studio
+- Only enable public uploads after you like the results
+
+Read README.md for the exact click-by-click setup.

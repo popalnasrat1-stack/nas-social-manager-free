@@ -3,8 +3,9 @@ name: YouTube Shorts Automation
 "on":
   workflow_dispatch: {}
   schedule:
-    # Six uploads per day. Scheduled GitHub Actions may start a few minutes late.
-    - cron: "17 */4 * * *"
+    # Twelve uploads per day, approximately every 2 hours.
+    # Scheduled GitHub Actions may start a few minutes late.
+    - cron: "17 */2 * * *"
 
 concurrency:
   group: youtube-shorts-automation

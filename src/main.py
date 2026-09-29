@@ -11,6 +11,7 @@ from googleapiclient.http import MediaFileUpload
 REGION_CODE = os.getenv("REGION_CODE", "AE").upper()
 YOUTUBE_PRIVACY = os.getenv("YOUTUBE_PRIVACY", "private")
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 TOKEN_B64 = os.getenv("YOUTUBE_TOKEN_B64", "")
 
 SAFE_TOPICS = {
@@ -64,15 +65,20 @@ def write_token():
     token = base64.b64decode(TOKEN_B64).decode("utf-8")
     Path("youtube_token.json").write_text(token, encoding="utf-8")
 
-def youtube():
+def youtube_upload_client():
     write_token()
     scopes = ["https://www.googleapis.com/auth/youtube.upload"]
     creds = Credentials.from_authorized_user_file("youtube_token.json", scopes)
     if creds.expired and creds.refresh_token:
         creds.refresh(GoogleRequest())
     if not creds.valid:
-        raise RuntimeError("YouTube token is invalid.")
+        raise RuntimeError("YouTube upload token is invalid.")
     return build("youtube", "v3", credentials=creds)
+
+def youtube_public_client():
+    if not YOUTUBE_API_KEY:
+        raise RuntimeError("YOUTUBE_API_KEY secret is missing.")
+    return build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
 def trending_titles(yt):
     resp = yt.videos().list(
@@ -277,9 +283,10 @@ def upload(yt, path, title, description, tags):
 
 def main():
     random.seed()
-    yt = youtube()
+    yt_public = youtube_public_client()
+    yt_upload = youtube_upload_client()
 
-    titles = trending_titles(yt)
+    titles = trending_titles(yt_public)
     topic, scores = score_topics(titles)
 
     script = build_script(topic)
@@ -305,7 +312,7 @@ def main():
         )
 
         tags = [x.lstrip("#") for x in hashtags] + [topic, "entertainment", "shorts"]
-        video_id = upload(yt, final, title, description, tags)
+        video_id = upload(yt_upload, final, title, description, tags)
 
     print(json.dumps({
         "status": "uploaded",

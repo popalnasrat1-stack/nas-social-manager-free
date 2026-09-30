@@ -1,4 +1,4 @@
-import os, json, base64, random, subprocess, tempfile
+import os, json, base64, random, subprocess, tempfile, time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -13,6 +13,7 @@ REGION_CODE = os.getenv("REGION_CODE", "AE").upper()
 YOUTUBE_PRIVACY = os.getenv("YOUTUBE_PRIVACY", "private")
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
+REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN", "")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 TOKEN_B64 = os.getenv("YOUTUBE_TOKEN_B64", "")
 
@@ -470,6 +471,136 @@ def generate_pollinations_clip(prompt, work):
     return None, None
 
 
+def _download_url_to_file(url, output, timeout=180):
+    try:
+        with requests.get(url, stream=True, timeout=timeout) as response:
+            response.raise_for_status()
+            with open(output, "wb") as handle:
+                for chunk in response.iter_content(1024 * 1024):
+                    if chunk:
+                        handle.write(chunk)
+        if output.exists() and output.stat().st_size > 10000 and media_duration(output) > 0:
+            return output
+    except Exception as exc:
+        print(f"Media download failed: {exc}")
+    return None
+
+
+def _replicate_output_url(output):
+    if isinstance(output, str) and output.startswith("http"):
+        return output
+    if isinstance(output, list):
+        for item in output:
+            url = _replicate_output_url(item)
+            if url:
+                return url
+    if isinstance(output, dict):
+        for key in ("url", "video", "output"):
+            if key in output:
+                url = _replicate_output_url(output[key])
+                if url:
+                    return url
+    return None
+
+
+def generate_replicate_clip(prompt, work):
+    """
+    Second AI fallback using Replicate's current Try-for-Free video model.
+    Replicate's free trial is limited. If the account has no purchased credit,
+    exhausted trial access should fail and the workflow falls back to Pexels.
+    """
+    if not REPLICATE_API_TOKEN:
+        return None, None
+
+    model_id = "minimax/video-01"
+    endpoint = "https://api.replicate.com/v1/models/minimax/video-01/predictions"
+    headers = {
+        "Authorization": f"Bearer {REPLICATE_API_TOKEN}",
+        "Content-Type": "application/json",
+        "Cancel-After": "7m",
+    }
+
+    # MiniMax text-to-video does not expose a native aspect-ratio input here,
+    # so the prompt keeps the important action centered for a later 9:16 crop.
+    ai_prompt = (
+        "Portrait vertical composition, subject centered, extreme close-up, "
+        "important action kept in the center safe area for a 9:16 crop. "
+        + prompt
+    )
+
+    try:
+        response = requests.post(
+            endpoint,
+            headers=headers,
+            json={
+                "input": {
+                    "prompt": ai_prompt,
+                    "prompt_optimizer": True,
+                }
+            },
+            timeout=45,
+        )
+    except Exception as exc:
+        print(f"Replicate request failed: {exc}")
+        return None, None
+
+    if response.status_code not in (200, 201):
+        detail = response.text[:500].replace("\n", " ")
+        print(
+            f"Replicate free-trial request unavailable "
+            f"(HTTP {response.status_code}): {detail}"
+        )
+        return None, None
+
+    try:
+        prediction = response.json()
+    except Exception:
+        print("Replicate returned a non-JSON prediction response.")
+        return None, None
+
+    get_url = (prediction.get("urls") or {}).get("get")
+    prediction_id = prediction.get("id")
+    if not get_url and prediction_id:
+        get_url = f"https://api.replicate.com/v1/predictions/{prediction_id}"
+
+    deadline = time.time() + 390
+    while prediction.get("status") not in ("succeeded", "failed", "canceled") and time.time() < deadline:
+        if not get_url:
+            break
+        time.sleep(5)
+        try:
+            poll = requests.get(
+                get_url,
+                headers={"Authorization": f"Bearer {REPLICATE_API_TOKEN}"},
+                timeout=30,
+            )
+            if poll.status_code != 200:
+                print(f"Replicate polling returned HTTP {poll.status_code}.")
+                return None, None
+            prediction = poll.json()
+        except Exception as exc:
+            print(f"Replicate polling failed: {exc}")
+            return None, None
+
+    if prediction.get("status") != "succeeded":
+        err = prediction.get("error") or "prediction did not complete"
+        print(f"Replicate generation unavailable: {err}")
+        return None, None
+
+    media_url = _replicate_output_url(prediction.get("output"))
+    if not media_url:
+        print("Replicate succeeded but returned no downloadable video URL.")
+        return None, None
+
+    output = work / "replicate_ai.mp4"
+    saved = _download_url_to_file(media_url, output, timeout=180)
+    if saved:
+        print(f"Using Replicate Try-for-Free AI video model: {model_id}")
+        return saved, model_id
+
+    return None, None
+
+
 def search_pexels(query, per_page=24):
     if not PEXELS_API_KEY:
         raise RuntimeError("PEXELS_API_KEY secret is missing.")
@@ -784,19 +915,25 @@ def main():
         ai_clip, ai_model = generate_pollinations_clip(concept["prompt"], work)
 
         if ai_clip:
-            # Sample three different moments from the AI clip, then build a replay-friendly loop.
             clips = [ai_clip, ai_clip, ai_clip]
             credits = []
             source_type = "pollinations_ai"
         else:
-            clips, credits = download_clips(concept, work, wanted=3)
-            source_type = "pexels"
+            ai_clip, ai_model = generate_replicate_clip(concept["prompt"], work)
+            if ai_clip:
+                clips = [ai_clip, ai_clip, ai_clip]
+                credits = []
+                source_type = "replicate_ai"
+            else:
+                clips, credits = download_clips(concept, work, wanted=3)
+                source_type = "pexels"
 
         final, duration = make_video(clips, topic, work)
 
-        if source_type == "pollinations_ai":
+        if source_type in ("pollinations_ai", "replicate_ai"):
+            provider = "Pollinations" if source_type == "pollinations_ai" else "Replicate"
             description = (
-                f"{title}. Original prompt-directed AI visual generated through Pollinations "
+                f"{title}. Original prompt-directed AI visual generated through {provider} "
                 f"using model {ai_model}. The background sound bed is generated inside this workflow.\n\n"
                 + " ".join(hashtags)
             )
@@ -830,7 +967,7 @@ def main():
         "title": title,
         "creative_prompt": concept["prompt"],
         "source": source_type,
-        "pollinations_model": ai_model,
+        "ai_model": ai_model,
         "searches": concept["searches"],
         "duration_seconds": duration,
         "region": REGION_CODE,

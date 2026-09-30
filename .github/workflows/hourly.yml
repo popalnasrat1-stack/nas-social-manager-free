@@ -24,6 +24,7 @@ jobs:
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
+      REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
       REGION_CODE: AE
       YOUTUBE_PRIVACY: public
 

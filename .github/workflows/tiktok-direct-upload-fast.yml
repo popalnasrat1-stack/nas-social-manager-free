@@ -1,0 +1,42 @@
+name: TikTok Direct Public Upload Fast
+
+on:
+  push:
+    paths:
+      - "tiktok-direct-upload-fast-trigger.txt"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      REGION_CODE: AE
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt cryptography
+      - uses: actions/download-artifact@v4
+        with:
+          name: tiktok-token-encrypted
+          path: .tiktok-token
+          github-token: ${{ github.token }}
+          run-id: 36783532366
+      - run: ffmpeg -version | head -1
+      - run: python tools/make_tiktok_test_video.py
+      - run: python tools/tiktok_direct_post.py --token .tiktok-token/tiktok_token_encrypted.txt --video tiktok_video.mp4 --meta tiktok_video_meta.json
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiktok-direct-public-fast-test
+          path: |
+            tiktok_video.mp4
+            tiktok_video_meta.json
+          retention-days: 1

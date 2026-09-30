@@ -17,7 +17,7 @@ permissions:
 jobs:
   create-and-upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     env:
       YOUTUBE_TOKEN_B64: ${{ secrets.YOUTUBE_TOKEN_B64 }}

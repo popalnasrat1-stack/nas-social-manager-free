@@ -36,9 +36,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install authorization dependency
-        if: ${{ inputs.step == 'finish' }}
-        run: pip install cryptography requests
+      - name: Install authorization dependencies
+        run: pip install requests cryptography
 
       - name: Generate TikTok authorization link
         if: ${{ inputs.step == 'start' }}

@@ -3,7 +3,7 @@ name: TikTok Direct Post Existing Video
 on:
   push:
     paths:
-      - "tiktok-existing-video-trigger.txt"
+      - "tiktok-direct-check-trigger.txt"
 
 permissions:
   contents: read

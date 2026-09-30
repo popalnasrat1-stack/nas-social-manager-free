@@ -1,6 +1,7 @@
 import os, json, base64, random, subprocess, tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 import requests
 
 from google.oauth2.credentials import Credentials
@@ -11,6 +12,7 @@ from googleapiclient.http import MediaFileUpload
 REGION_CODE = os.getenv("REGION_CODE", "AE").upper()
 YOUTUBE_PRIVACY = os.getenv("YOUTUBE_PRIVACY", "private")
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
+POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 TOKEN_B64 = os.getenv("YOUTUBE_TOKEN_B64", "")
 
@@ -290,6 +292,182 @@ def choose_scheduled_concept():
     occurrence = day * 12 + slot
     concept = concepts[occurrence % len(concepts)]
     return topic, concept
+
+
+def _number(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _pricing_numbers(obj, inside_pricing=False):
+    """
+    Collect explicit numeric pricing/cost values conservatively.
+    A model is treated as free only when the catalog explicitly advertises
+    pricing and every advertised numeric price is zero.
+    """
+    values = []
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            key_low = str(key).lower()
+            child_pricing = inside_pricing or any(
+                word in key_low for word in ("price", "pricing", "cost")
+            )
+            if isinstance(value, (dict, list)):
+                values.extend(_pricing_numbers(value, child_pricing))
+                continue
+
+            number = _number(value)
+            if number is None:
+                continue
+
+            # Include all numbers inside pricing/cost objects, plus common
+            # model-registry billing keys such as completionVideoSeconds.
+            if child_pricing or any(
+                word in key_low
+                for word in (
+                    "completionvideo", "videoseconds", "video_seconds",
+                    "persecond", "per_second", "completionimage"
+                )
+            ):
+                values.append(number)
+    elif isinstance(obj, list):
+        for item in obj:
+            values.extend(_pricing_numbers(item, inside_pricing))
+    return values
+
+
+def free_pollinations_video_models():
+    """
+    Discover the live Pollinations video catalog and return only models that
+    explicitly advertise zero pricing. If none are free, AI generation is
+    skipped so the workflow cannot unexpectedly spend paid Pollen.
+    """
+    if not POLLINATIONS_API_KEY:
+        return []
+
+    try:
+        response = requests.get(
+            "https://gen.pollinations.ai/video/models",
+            timeout=30,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:
+        print(f"Pollinations model discovery failed: {exc}")
+        return []
+
+    if isinstance(payload, dict):
+        models = payload.get("data") or payload.get("models") or []
+    elif isinstance(payload, list):
+        models = payload
+    else:
+        models = []
+
+    free_models = []
+    for model in models:
+        if not isinstance(model, dict):
+            continue
+
+        model_id = model.get("id") or model.get("model") or model.get("name")
+        if not model_id:
+            continue
+
+        prices = _pricing_numbers(model)
+        if not prices:
+            # No explicit price => do not assume free.
+            continue
+        if any(price > 0 for price in prices):
+            continue
+
+        reliability = str(model.get("reliability") or "").lower()
+        free_models.append((0 if reliability == "reliable" else 1, str(model_id)))
+
+    free_models.sort()
+    return [model_id for _, model_id in free_models]
+
+
+def _save_pollinations_response(response, output):
+    content_type = (response.headers.get("content-type") or "").lower()
+
+    if "video/" in content_type or "application/octet-stream" in content_type:
+        output.write_bytes(response.content)
+        return output if output.stat().st_size > 10000 else None
+
+    try:
+        payload = response.json()
+    except Exception:
+        return None
+
+    data = payload.get("data") if isinstance(payload, dict) else None
+    item = data[0] if isinstance(data, list) and data else payload
+    if not isinstance(item, dict):
+        return None
+
+    if item.get("b64_json"):
+        try:
+            output.write_bytes(base64.b64decode(item["b64_json"]))
+            return output if output.stat().st_size > 10000 else None
+        except Exception:
+            return None
+
+    media_url = item.get("url")
+    if media_url:
+        try:
+            with requests.get(media_url, stream=True, timeout=180) as media:
+                media.raise_for_status()
+                with open(output, "wb") as handle:
+                    for chunk in media.iter_content(1024 * 1024):
+                        if chunk:
+                            handle.write(chunk)
+            return output if output.stat().st_size > 10000 else None
+        except Exception:
+            return None
+
+    return None
+
+
+def generate_pollinations_clip(prompt, work):
+    """
+    Try free Pollinations video generation first. The live model catalog decides
+    which zero-price model is used. Generation failure never stops the channel;
+    the caller falls back to Pexels.
+    """
+    models = free_pollinations_video_models()
+    if not models:
+        print("No explicitly free Pollinations video model is available; using Pexels fallback.")
+        return None, None
+
+    endpoint = "https://gen.pollinations.ai/video/" + quote(prompt, safe="")
+    headers = {"Authorization": f"Bearer {POLLINATIONS_API_KEY}"}
+
+    for index, model_id in enumerate(models[:4], start=1):
+        output = work / f"pollinations_{index}.mp4"
+        try:
+            response = requests.get(
+                endpoint,
+                headers=headers,
+                params={
+                    "model": model_id,
+                    "duration": 4,
+                    "aspectRatio": "9:16",
+                },
+                timeout=330,
+            )
+            if response.status_code != 200:
+                print(f"Pollinations model {model_id} returned HTTP {response.status_code}.")
+                continue
+
+            saved = _save_pollinations_response(response, output)
+            if saved and media_duration(saved) > 0:
+                print(f"Using free Pollinations AI video model: {model_id}")
+                return saved, model_id
+        except Exception as exc:
+            print(f"Pollinations model {model_id} failed: {exc}")
+
+    print("Free Pollinations generation failed; using Pexels fallback.")
+    return None, None
 
 
 def search_pexels(query, per_page=24):
@@ -603,22 +781,38 @@ def main():
     with tempfile.TemporaryDirectory() as td:
         work = Path(td)
 
-        clips, credits = download_clips(concept, work, wanted=3)
+        ai_clip, ai_model = generate_pollinations_clip(concept["prompt"], work)
+
+        if ai_clip:
+            # Sample three different moments from the AI clip, then build a replay-friendly loop.
+            clips = [ai_clip, ai_clip, ai_clip]
+            credits = []
+            source_type = "pollinations_ai"
+        else:
+            clips, credits = download_clips(concept, work, wanted=3)
+            source_type = "pexels"
+
         final, duration = make_video(clips, topic, work)
 
-        credit_lines = [
-            f"Footage by {credit['name']} on Pexels: {credit['url']}"
-            for credit in credits
-        ]
-
-        description = (
-            f"{title}. Original prompt-directed vertical edit using licensed stock footage. "
-            "No trending video is copied. The background sound bed is generated inside the workflow; "
-            "original stock-clip audio is kept when available.\n\n"
-            + "\n".join(credit_lines)
-            + "\n\nPhotos/videos provided by Pexels.\n\n"
-            + " ".join(hashtags)
-        )
+        if source_type == "pollinations_ai":
+            description = (
+                f"{title}. Original prompt-directed AI visual generated through Pollinations "
+                f"using model {ai_model}. The background sound bed is generated inside this workflow.\n\n"
+                + " ".join(hashtags)
+            )
+        else:
+            credit_lines = [
+                f"Footage by {credit['name']} on Pexels: {credit['url']}"
+                for credit in credits
+            ]
+            description = (
+                f"{title}. Original prompt-directed vertical edit using licensed stock footage. "
+                "No trending video is copied. The background sound bed is generated inside the workflow; "
+                "original stock-clip audio is kept when available.\n\n"
+                + "\n".join(credit_lines)
+                + "\n\nPhotos/videos provided by Pexels.\n\n"
+                + " ".join(hashtags)
+            )
 
         tags = [tag.lstrip("#") for tag in hashtags] + [
             topic.replace("_", " "),
@@ -635,6 +829,8 @@ def main():
         "topic": topic,
         "title": title,
         "creative_prompt": concept["prompt"],
+        "source": source_type,
+        "pollinations_model": ai_model,
         "searches": concept["searches"],
         "duration_seconds": duration,
         "region": REGION_CODE,

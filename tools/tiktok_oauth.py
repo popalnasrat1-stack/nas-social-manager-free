@@ -33,6 +33,15 @@ def start():
     if not client_key or not client_secret:
         raise SystemExit("TikTok client secrets are missing in GitHub Actions.")
 
+    # Safe diagnostics only; never print credential values.
+    print(json.dumps({
+        "client_key_length": len(client_key),
+        "client_key_ascii": client_key.isascii(),
+        "client_key_has_whitespace": any(ch.isspace() for ch in client_key),
+        "client_key_has_quotes": ('"' in client_key or "'" in client_key),
+        "client_secret_present": bool(client_secret),
+    }))
+
     # Web Login Kit uses a static HTTPS redirect URI. Sign the state so the
     # finish run can verify it without storing plaintext state anywhere.
     issued = str(int(__import__("time").time()))

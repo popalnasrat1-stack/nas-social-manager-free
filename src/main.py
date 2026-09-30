@@ -1,4 +1,5 @@
 import os, json, base64, random, subprocess, tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 import requests
 
@@ -21,7 +22,7 @@ CONTENT = {
     "asmr": {
         "trend_keywords": ["asmr", "satisfying", "relaxing", "soap", "sand", "texture", "macro"],
         "hashtags": ["#Shorts", "#ASMR", "#Satisfying"],
-        "duration": (13, 19),
+        "duration": (12, 16),
         "concepts": [
             {
                 "title": "Soap Cutting ASMR",
@@ -58,7 +59,7 @@ CONTENT = {
     "color_mixing": {
         "trend_keywords": ["paint", "painting", "color", "colour", "mixing", "art", "palette", "acrylic"],
         "hashtags": ["#Shorts", "#ColorMixing", "#ASMR", "#Art"],
-        "duration": (14, 20),
+        "duration": (12, 16),
         "concepts": [
             {
                 "title": "Palette Knife Color Mixing",
@@ -95,36 +96,36 @@ CONTENT = {
     "exotic_fruit": {
         "trend_keywords": ["fruit", "food", "cutting", "mango", "pineapple", "papaya", "dragon fruit", "tropical"],
         "hashtags": ["#Shorts", "#FruitCutting", "#ASMR", "#Satisfying"],
-        "duration": (12, 18),
+        "duration": (12, 16),
         "concepts": [
             {
                 "title": "Dragon Fruit Cutting ASMR",
                 "prompt": "Macro ASMR shot of a chilled dragon fruit being sliced open with a razor-sharp knife, vivid pink skin and white seeded flesh, clean cutting sounds, black background, immediate first cut.",
                 "searches": [
-                    "dragon fruit cutting close up",
-                    "dragon fruit slicing",
-                    "pitaya cutting",
-                    "exotic fruit cutting"
+                    "knife cutting dragon fruit close up",
+                    "dragon fruit sliced with knife",
+                    "pitaya cutting close up",
+                    "fruit knife cutting macro"
                 ],
             },
             {
                 "title": "Mango Cutting ASMR",
                 "prompt": "Juicy ripe mango cut into perfect cubes in extreme close-up, glossy golden flesh, clean knife work, bright studio lighting, satisfying first cut immediately.",
                 "searches": [
-                    "mango cutting close up",
-                    "mango slicing",
-                    "mango cubes cutting",
-                    "tropical fruit cutting"
+                    "knife cutting mango close up",
+                    "mango sliced with knife",
+                    "mango cubes knife cutting",
+                    "fruit knife cutting macro"
                 ],
             },
             {
                 "title": "Pineapple Cutting ASMR",
                 "prompt": "Extreme close-up of a ripe pineapple being peeled and sliced with fast precise knife work, bright yellow texture, crisp satisfying cuts, action starts in the first frame.",
                 "searches": [
-                    "pineapple cutting close up",
-                    "pineapple slicing",
-                    "pineapple peeling",
-                    "fruit cutting asmr"
+                    "knife cutting pineapple close up",
+                    "pineapple sliced with knife",
+                    "pineapple peeling knife close up",
+                    "fruit knife cutting macro"
                 ],
             },
             {
@@ -142,36 +143,36 @@ CONTENT = {
     "exotic_cars": {
         "trend_keywords": ["car", "cars", "supercar", "sports car", "luxury car", "automotive", "engine"],
         "hashtags": ["#Shorts", "#Supercars", "#ExoticCars", "#Cars"],
-        "duration": (12, 18),
+        "duration": (12, 16),
         "concepts": [
             {
-                "title": "Supercar Cinematic",
-                "prompt": "Cinematic vertical montage of an exotic supercar at night, low camera angle, headlights flare, glossy body reflections, fast rolling shot, premium commercial look, strongest motion first.",
+                "title": "Supercar Night Run",
+                "prompt": "Cinematic vertical rolling shot of an exotic supercar moving at night, low camera angle, headlights and glossy reflections, wheel motion, immediate speed in frame one, premium commercial look.",
                 "searches": [
-                    "supercar driving cinematic",
-                    "exotic sports car night",
-                    "luxury car rolling shot",
-                    "sports car cinematic"
+                    "supercar driving road night",
+                    "exotic sports car driving",
+                    "supercar rolling shot",
+                    "sports car driving cinematic"
                 ],
             },
             {
-                "title": "Exotic Car Details",
-                "prompt": "Macro cinematic details of an exotic car: carbon fiber, wheel, brake caliper, headlight and glossy paint, dramatic reflections, premium studio look, fast precise cuts.",
+                "title": "Exotic Car Rolling Shots",
+                "prompt": "Fast cinematic vertical montage of an exotic sports car in motion, tracking shot, spinning wheels, road reflections, low angles, immediate movement, no parked-car setup.",
                 "searches": [
-                    "supercar detail close up",
-                    "luxury car detail",
-                    "sports car wheel close up",
-                    "exotic car close up"
+                    "exotic car driving road",
+                    "sports car rolling shot",
+                    "luxury car driving cinematic",
+                    "supercar moving road"
                 ],
             },
             {
-                "title": "Luxury Car Interior",
-                "prompt": "Premium exotic car interior montage with steering wheel, digital cockpit, leather stitching and ambient lighting, shallow depth of field, clean cinematic motion, immediate visual hook.",
+                "title": "Luxury Sports Car Cinematic",
+                "prompt": "Premium vertical sports-car commercial with a luxury performance car actively driving, dramatic road, close moving angles, reflections across the bodywork and fast clean cuts.",
                 "searches": [
-                    "luxury car interior close up",
-                    "sports car interior",
-                    "supercar cockpit",
-                    "car interior cinematic"
+                    "luxury sports car driving",
+                    "performance car driving cinematic",
+                    "supercar highway driving",
+                    "sports car road cinematic"
                 ],
             },
         ],
@@ -250,23 +251,31 @@ def trending_titles(yt):
     return titles
 
 
-def choose_topic(titles):
+def trend_scores(titles):
     joined = " ".join(titles).lower()
-    scores = {
+    return {
         topic: sum(joined.count(k) for k in data["trend_keywords"])
         for topic, data in CONTENT.items()
     }
 
-    weighted = []
-    for topic, score in scores.items():
-        # Every niche stays active, while current YouTube signals influence frequency.
-        weighted.extend([topic] * max(2, min(10, score + 2)))
 
-    return random.choice(weighted or list(CONTENT)), scores
+def choose_scheduled_concept():
+    """
+    The workflow runs every two hours. Rotate niches instead of allowing
+    trend weighting to accidentally publish cars several times in a row.
+    Concepts rotate within each niche across the day.
+    """
+    now = datetime.now(timezone.utc)
+    slot = now.hour // 2
+    day = now.toordinal()
 
+    topics = ["asmr", "color_mixing", "exotic_fruit", "exotic_cars"]
+    topic = topics[(day * 12 + slot) % len(topics)]
 
-def choose_concept(topic):
-    return random.choice(CONTENT[topic]["concepts"])
+    concepts = CONTENT[topic]["concepts"]
+    occurrence = (day * 3) + (slot // len(topics))
+    concept = concepts[occurrence % len(concepts)]
+    return topic, concept
 
 
 def search_pexels(query, per_page=24):
@@ -348,8 +357,7 @@ def download_clips(concept, work, wanted=4):
 
     # The hook comes from the closest search to the prompt and from the top results.
     exact = [c for c in candidates if c["query_index"] == 0]
-    hook_pool = exact[:3] if exact else candidates[:3]
-    hook = random.choice(hook_pool)
+    hook = exact[0] if exact else candidates[0]
 
     remaining = [
         c for c in candidates
@@ -358,11 +366,8 @@ def download_clips(concept, work, wanted=4):
     remaining.sort(key=lambda c: (c["query_index"], c["rank_index"]))
 
     # Keep the rest highly relevant, with a little variety.
-    body_pool = remaining[:12]
-    if len(body_pool) > wanted - 1:
-        body = random.sample(body_pool, wanted - 1)
-    else:
-        body = body_pool[: wanted - 1]
+    body_pool = remaining[:10]
+    body = body_pool[: wanted - 1]
 
     selected = [hook] + body
     paths = []
@@ -487,7 +492,7 @@ def make_video(clips, topic, work):
     target_duration = random.randint(low, high)
 
     # Make the opening visual change quickly to reduce swipe-away.
-    hook_seconds = random.uniform(1.7, 2.4)
+    hook_seconds = random.uniform(1.25, 1.75)
     body_total = max(1.0, target_duration - hook_seconds)
     body_seconds = body_total / max(1, len(clips) - 1)
 
@@ -571,8 +576,8 @@ def main():
     yt_upload = youtube_upload_client()
 
     current_titles = trending_titles(yt_public)
-    topic, scores = choose_topic(current_titles)
-    concept = choose_concept(topic)
+    scores = trend_scores(current_titles)
+    topic, concept = choose_scheduled_concept()
 
     title = concept["title"]
     hashtags = CONTENT[topic]["hashtags"]

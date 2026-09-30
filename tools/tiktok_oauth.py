@@ -35,7 +35,7 @@ def start():
 
     state = secrets.token_urlsafe(24)
     verifier = code_verifier(client_secret, state)
-    challenge = b64url(hashlib.sha256(verifier.encode("ascii")).digest())
+    challenge = hashlib.sha256(verifier.encode("ascii")).hexdigest()
 
     params = {
         "client_key": client_key,

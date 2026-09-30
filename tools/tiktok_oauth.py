@@ -11,7 +11,7 @@ from urllib.parse import urlencode, urlparse, parse_qs
 import requests
 
 REDIRECT_URI = "https://popalnasrat1-stack.github.io/nas-social-manager-free/tiktok-callback.html"
-SCOPES = "user.info.basic,video.upload"
+SCOPES = "user.info.basic,video.upload,video.publish"
 
 
 def b64url(raw: bytes) -> str:

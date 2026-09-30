@@ -22,7 +22,7 @@ CONTENT = {
     "asmr": {
         "trend_keywords": ["asmr", "satisfying", "relaxing", "soap", "sand", "texture", "macro"],
         "hashtags": ["#Shorts", "#ASMR", "#Satisfying"],
-        "duration": (12, 16),
+        "duration": (9, 13),
         "concepts": [
             {
                 "title": "Soap Cutting ASMR",
@@ -59,7 +59,7 @@ CONTENT = {
     "color_mixing": {
         "trend_keywords": ["paint", "painting", "color", "colour", "mixing", "art", "palette", "acrylic"],
         "hashtags": ["#Shorts", "#ColorMixing", "#ASMR", "#Art"],
-        "duration": (12, 16),
+        "duration": (9, 13),
         "concepts": [
             {
                 "title": "Palette Knife Color Mixing",
@@ -96,7 +96,7 @@ CONTENT = {
     "exotic_fruit": {
         "trend_keywords": ["fruit", "food", "cutting", "mango", "pineapple", "papaya", "dragon fruit", "tropical"],
         "hashtags": ["#Shorts", "#FruitCutting", "#ASMR", "#Satisfying"],
-        "duration": (12, 16),
+        "duration": (9, 13),
         "concepts": [
             {
                 "title": "Dragon Fruit Cutting ASMR",
@@ -261,19 +261,33 @@ def trend_scores(titles):
 
 def choose_scheduled_concept():
     """
-    The workflow runs every two hours. Rotate niches instead of allowing
-    trend weighting to accidentally publish cars several times in a row.
-    Concepts rotate within each niche across the day.
+    Aggressive satisfying-only mode.
+    Twelve daily slots focus the channel on one audience instead of mixing niches.
+    Rotation: 5 color-mixing, 4 fruit-cutting, 3 visual-ASMR Shorts per day.
+    Exotic cars stay in the library but are paused from automatic publishing.
     """
     now = datetime.now(timezone.utc)
     slot = now.hour // 2
     day = now.toordinal()
 
-    topics = ["asmr", "color_mixing", "exotic_fruit", "exotic_cars"]
-    topic = topics[(day * 12 + slot) % len(topics)]
+    daily_rotation = [
+        "color_mixing",
+        "exotic_fruit",
+        "asmr",
+        "color_mixing",
+        "exotic_fruit",
+        "color_mixing",
+        "asmr",
+        "exotic_fruit",
+        "color_mixing",
+        "exotic_fruit",
+        "color_mixing",
+        "asmr",
+    ]
+    topic = daily_rotation[slot % len(daily_rotation)]
 
     concepts = CONTENT[topic]["concepts"]
-    occurrence = (day * 3) + (slot // len(topics))
+    occurrence = day * 12 + slot
     concept = concepts[occurrence % len(concepts)]
     return topic, concept
 
@@ -491,9 +505,11 @@ def make_video(clips, topic, work):
     low, high = CONTENT[topic]["duration"]
     target_duration = random.randint(low, high)
 
-    # Make the opening visual change quickly to reduce swipe-away.
-    hook_seconds = random.uniform(1.25, 1.75)
-    body_total = max(1.0, target_duration - hook_seconds)
+    # Aggressive retention structure:
+    # 0.7–1.0s hook -> two satisfying shots -> repeat hook at the end.
+    # Repeating the opening shot helps the Short loop naturally.
+    hook_seconds = random.uniform(0.70, 1.00)
+    body_total = max(2.0, target_duration - (hook_seconds * 2))
     body_seconds = body_total / max(1, len(clips) - 1)
 
     normalized = []
@@ -503,9 +519,12 @@ def make_video(clips, topic, work):
         normalize_clip(src, dst, seconds, hook=(index == 1))
         normalized.append(dst)
 
+    # Finish on the same visual hook used at the start so replay feels continuous.
+    sequence = normalized + [normalized[0]]
+
     concat_file = work / "concat.txt"
     concat_file.write_text(
-        "\n".join(f"file '{path.as_posix()}'" for path in normalized),
+        "\n".join(f"file '{path.as_posix()}'" for path in sequence),
         encoding="utf-8"
     )
 
@@ -519,7 +538,6 @@ def make_video(clips, topic, work):
         str(visual)
     ])
 
-    # Always add a subtle vibe-matched generated bed, while preserving source audio.
     vibe, vibe_mix = make_vibe_audio(topic, target_duration, work)
     final = work / "final.mp4"
     run([
@@ -585,7 +603,7 @@ def main():
     with tempfile.TemporaryDirectory() as td:
         work = Path(td)
 
-        clips, credits = download_clips(concept, work, wanted=4)
+        clips, credits = download_clips(concept, work, wanted=3)
         final, duration = make_video(clips, topic, work)
 
         credit_lines = [

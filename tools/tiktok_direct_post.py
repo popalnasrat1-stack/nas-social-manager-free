@@ -196,10 +196,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--token", required=True)
     parser.add_argument("--video", required=True)
-    parser.add_argument("--title", required=True)
+    parser.add_argument("--title", default="")
+    parser.add_argument("--meta", default="")
     parser.add_argument("--aigc", action="store_true")
     args = parser.parse_args()
-    direct_post(args.token, args.video, args.title, args.aigc)
+
+    title = args.title.strip()
+    if args.meta:
+        meta = json.loads(Path(args.meta).read_text(encoding="utf-8"))
+        title = str(meta.get("caption") or meta.get("title") or title).strip()
+    if not title:
+        raise SystemExit("TikTok direct post requires a caption/title.")
+
+    direct_post(args.token, args.video, title, args.aigc)
 
 
 if __name__ == "__main__":

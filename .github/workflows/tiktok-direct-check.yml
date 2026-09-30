@@ -1,0 +1,41 @@
+name: TikTok Direct Check
+
+on:
+  push:
+    paths:
+      - ".github/tiktok-direct-check-trigger.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests cryptography
+
+      - name: Download latest direct-post TikTok token
+        uses: actions/download-artifact@v4
+        with:
+          name: tiktok-token-encrypted
+          path: .tiktok-token
+          github-token: ${{ github.token }}
+          run-id: 36783532366
+
+      - name: Check TikTok direct-post eligibility
+        run: python tools/tiktok_creator_check.py --token .tiktok-token/tiktok_token_encrypted.txt

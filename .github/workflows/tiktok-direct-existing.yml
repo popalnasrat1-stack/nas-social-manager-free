@@ -33,4 +33,11 @@ jobs:
           path: .tiktok-token
           github-token: ${{ github.token }}
           run-id: 36783532366
-      - run: python tools/tiktok_direct_post.py --token .tiktok-token/tiktok_token_encrypted.txt --video .video/tiktok_video.mp4 --title "Watch these colors melt together #ColorMixing #PaintMixing #Satisfying #ASMR #ArtTok"
+      - name: Publish existing video publicly
+        env:
+          TIKTOK_CAPTION: "Watch these colors melt together #ColorMixing #PaintMixing #Satisfying #ASMR #ArtTok"
+        run: |
+          python tools/tiktok_direct_post.py \
+            --token .tiktok-token/tiktok_token_encrypted.txt \
+            --video .video/tiktok_video.mp4 \
+            --title "$TIKTOK_CAPTION"

@@ -1,0 +1,59 @@
+name: TikTok Authorization
+
+"on":
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "Choose start first, then finish after TikTok redirects you"
+        required: true
+        type: choice
+        options:
+          - start
+          - finish
+        default: start
+      callback_url:
+        description: "Finish only: paste the full 127.0.0.1 callback URL from your browser"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install authorization dependency
+        if: ${{ inputs.step == 'finish' }}
+        run: pip install cryptography requests
+
+      - name: Generate TikTok authorization link
+        if: ${{ inputs.step == 'start' }}
+        run: python tools/tiktok_oauth.py start
+
+      - name: Exchange callback for encrypted TikTok token
+        if: ${{ inputs.step == 'finish' }}
+        env:
+          TIKTOK_CALLBACK_URL: ${{ inputs.callback_url }}
+        run: python tools/tiktok_oauth.py finish --callback-url "$TIKTOK_CALLBACK_URL"
+
+      - name: Store encrypted token bundle
+        if: ${{ inputs.step == 'finish' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiktok-token-encrypted
+          path: tiktok_token_encrypted.txt
+          retention-days: 1

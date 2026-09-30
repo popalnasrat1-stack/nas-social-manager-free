@@ -1,6 +1,9 @@
 name: TikTok Authorization
 
 "on":
+  push:
+    paths:
+      - ".github/tiktok-start-trigger.txt"
   workflow_dispatch:
     inputs:
       step:
@@ -37,7 +40,7 @@ jobs:
         run: pip install requests cryptography
 
       - name: Generate TikTok authorization launcher
-        if: ${{ inputs.step == 'start' }}
+        if: ${{ github.event_name == 'push' || inputs.step == 'start' }}
         run: python tools/tiktok_oauth.py start
 
       - name: Store TikTok authorization launcher

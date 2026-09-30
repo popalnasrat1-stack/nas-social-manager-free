@@ -1,0 +1,30 @@
+name: TikTok Direct Check Run
+
+on:
+  push:
+    paths:
+      - "tiktok-direct-check-trigger.txt"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests cryptography
+      - uses: actions/download-artifact@v4
+        with:
+          name: tiktok-token-encrypted
+          path: .tiktok-token
+          github-token: ${{ github.token }}
+          run-id: 36783532366
+      - run: python tools/tiktok_creator_check.py --token .tiktok-token/tiktok_token_encrypted.txt

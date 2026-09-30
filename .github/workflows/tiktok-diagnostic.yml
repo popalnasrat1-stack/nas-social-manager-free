@@ -1,0 +1,81 @@
+name: TikTok Credential Diagnostic
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    env:
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install requests
+        run: python -m pip install --quiet requests
+
+      - name: Check TikTok client and authorize endpoint safely
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.parse import urlparse
+          import requests
+
+          key = os.environ.get("TIKTOK_CLIENT_KEY", "").strip()
+          secret = os.environ.get("TIKTOK_CLIENT_SECRET", "").strip()
+          redirect = "https://popalnasrat1-stack.github.io/nas-social-manager-free/tiktok-callback.html"
+
+          print("client_key_present:", bool(key))
+          print("client_key_length:", len(key))
+          print("client_secret_present:", bool(secret))
+
+          token = requests.post(
+              "https://open.tiktokapis.com/v2/oauth/token/",
+              data={
+                  "client_key": key,
+                  "client_secret": secret,
+                  "grant_type": "client_credentials",
+              },
+              timeout=30,
+          )
+          try:
+              payload = token.json()
+          except Exception:
+              payload = {}
+
+          print("client_credentials_http:", token.status_code)
+          print("client_credentials_success:", bool(payload.get("access_token")))
+          if not payload.get("access_token"):
+              print("client_credentials_error:", payload.get("error"))
+              print("client_credentials_description:", payload.get("error_description"))
+              print("client_credentials_log_id:", payload.get("log_id"))
+
+          auth = requests.get(
+              "https://www.tiktok.com/v2/auth/authorize/",
+              params={
+                  "client_key": key,
+                  "scope": "user.info.basic",
+                  "response_type": "code",
+                  "redirect_uri": redirect,
+                  "state": "diagnostic_state_123456789",
+              },
+              headers={"User-Agent": "Mozilla/5.0"},
+              allow_redirects=False,
+              timeout=30,
+          )
+          print("authorize_http:", auth.status_code)
+          loc = auth.headers.get("location", "")
+          if loc:
+              p = urlparse(loc)
+              print("authorize_redirect_host:", p.netloc)
+              print("authorize_redirect_path:", p.path)
+          text = auth.text.lower()
+          print("authorize_body_mentions_client_key_error:", "client_key" in text and "something went wrong" in text)
+          print("authorize_body_mentions_login:", "log in" in text or "login" in text)
+          PY

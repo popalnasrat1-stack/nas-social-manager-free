@@ -64,12 +64,27 @@ def start():
     }
     url = "https://www.tiktok.com/v2/auth/authorize/?" + urlencode(params)
 
-    print("OPEN THIS URL IN YOUR BROWSER:")
-    print(url)
-    print()
-    print("After authorizing TikTok, you will land on the GitHub Pages callback page.")
-    print("Copy the FULL callback URL from the browser address bar into the")
-    print("TIKTOK_CALLBACK_URL GitHub Actions secret. Do not paste it into chat.")
+    # GitHub masks Actions Secrets in logs, which makes a printed auth URL unusable.
+    # Create a short-lived HTML launcher artifact instead. It contains the public
+    # client key and signed state, but never the client secret or any access token.
+    launcher = """<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>TikTok Authorization</title>
+<meta http-equiv="refresh" content="0;url={url}">
+</head>
+<body>
+<p>Opening TikTok authorization…</p>
+<p><a href="{url}">Continue to TikTok</a></p>
+</body>
+</html>
+""".format(url=url.replace("&", "&amp;").replace('"', "&quot;"))
+    Path("tiktok_authorize.html").write_text(launcher, encoding="utf-8")
+
+    print("TikTok authorization launcher created.")
+    print("Download the tiktok-authorization-launcher artifact and open tiktok_authorize.html.")
+    print("The client secret and tokens are not included in the launcher.")
 
 
 def finish(callback_url: str):

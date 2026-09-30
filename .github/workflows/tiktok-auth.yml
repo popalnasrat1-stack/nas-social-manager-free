@@ -44,7 +44,7 @@ jobs:
         run: python tools/tiktok_oauth.py start
 
       - name: Store TikTok authorization launcher
-        if: ${{ inputs.step == 'start' }}
+        if: ${{ github.event_name == 'push' || inputs.step == 'start' }}
         uses: actions/upload-artifact@v4
         with:
           name: tiktok-authorization-launcher

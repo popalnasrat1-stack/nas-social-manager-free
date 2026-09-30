@@ -1,4 +1,4 @@
-import os, json, base64, random, subprocess, tempfile, time
+import os, json, base64, random, subprocess, tempfile, time, re
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -18,9 +18,9 @@ YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 TOKEN_B64 = os.getenv("YOUTUBE_TOKEN_B64", "")
 
 # Prompt-first creative system.
-# Each Short starts with a strong visual prompt. Until an AI-video API is added,
-# the automation converts that prompt into precise stock-footage searches and
-# edits the closest matching clips into a retention-focused Short.
+# Each Short starts with a controlled visual prompt, tries AI video first,
+# automatically rejects weak generations, and falls back to licensed stock footage
+# so the publishing schedule stays reliable.
 CONTENT = {
     "asmr": {
         "trend_keywords": ["asmr", "satisfying", "relaxing", "soap", "sand", "texture", "macro"],
@@ -206,6 +206,146 @@ def media_duration(path):
         return max(0.0, float(out.strip()))
     except Exception:
         return 0.0
+
+
+
+def media_dimensions(path):
+    try:
+        out = run([
+            "ffprobe", "-v", "error", "-select_streams", "v:0",
+            "-show_entries", "stream=width,height",
+            "-of", "json", str(path)
+        ])
+        streams = json.loads(out).get("streams", [])
+        if not streams:
+            return 0, 0
+        return int(streams[0].get("width") or 0), int(streams[0].get("height") or 0)
+    except Exception:
+        return 0, 0
+
+
+def video_quality_check(path, label="video"):
+    """
+    Fast automatic gate before an AI clip can be uploaded.
+    Rejects broken, tiny, extremely short, or mostly frozen generations.
+    """
+    duration = media_duration(path)
+    width, height = media_dimensions(path)
+    size = path.stat().st_size if Path(path).exists() else 0
+    reasons = []
+
+    if duration < 3.0:
+        reasons.append(f"too short ({duration:.1f}s)")
+    if max(width, height) < 720 or min(width, height) < 400:
+        reasons.append(f"low resolution ({width}x{height})")
+    if size < 150_000:
+        reasons.append(f"tiny file ({size} bytes)")
+
+    # Detect long frozen sections. This is deliberately forgiving because
+    # macro ASMR can have slow motion, but a nearly static AI generation is poor for Shorts.
+    try:
+        probe = subprocess.run(
+            [
+                "ffmpeg", "-hide_banner", "-i", str(path),
+                "-vf", "freezedetect=n=-45dB:d=2.0",
+                "-an", "-f", "null", "-"
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=90,
+        )
+        freezes = [
+            float(x) for x in re.findall(r"freeze_duration:\s*([0-9.]+)", probe.stderr)
+        ]
+        if duration > 0 and freezes and max(freezes) > duration * 0.72:
+            reasons.append(f"mostly frozen ({max(freezes):.1f}s)")
+    except Exception:
+        pass
+
+    ok = not reasons
+    print(json.dumps({
+        "quality_gate": label,
+        "passed": ok,
+        "duration": round(duration, 2),
+        "resolution": f"{width}x{height}",
+        "file_bytes": size,
+        "reasons": reasons,
+    }))
+    return ok
+
+
+def build_ai_prompts(topic, concept):
+    """
+    Produce two tightly controlled prompt variants. The second is only used
+    when the first AI result fails the automatic quality gate.
+    """
+    topic_direction = {
+        "asmr": (
+            "ultra-real tactile material physics, crisp texture detail, deliberate satisfying motion, "
+            "single clear action already happening in frame one"
+        ),
+        "color_mixing": (
+            "thick glossy pigment with realistic viscosity, clean steel palette-knife movement, "
+            "rich micro-texture, smooth continuous folding motion"
+        ),
+        "exotic_fruit": (
+            "photoreal fresh fruit texture, believable knife geometry and hand anatomy, juicy clean slice, "
+            "the blade already making contact in frame one"
+        ),
+        "exotic_cars": (
+            "premium automotive commercial realism, moving reflections, stable tracking motion, "
+            "clean body geometry and natural wheel movement"
+        ),
+    }[topic]
+
+    common = (
+        "Vertical 9:16 premium cinematic macro video. "
+        "Keep the main subject large and centered in the safe area. "
+        "Immediate action, no intro, no setup, no dead frames. "
+        "Smooth stable camera, shallow depth of field, controlled studio lighting, high detail, "
+        + topic_direction + ". "
+        "No text, captions, logos, watermark, UI, duplicate objects, warped anatomy, malformed hands, "
+        "bent knife, melting geometry, visual flicker, jump cuts, camera shake, heavy motion blur, "
+        "overexposure, underexposure, or cluttered background. "
+    )
+
+    return [
+        common + concept["prompt"] + " One continuous polished shot with realistic physics and a clean ending.",
+        common + concept["prompt"] + " Alternate take: tighter macro framing, stronger texture contrast, smoother motion, premium product-film finish.",
+    ]
+
+
+def polished_title(topic, concept):
+    now = datetime.now(timezone.utc)
+    slot = now.hour // 2
+    variants = {
+        "asmr": [
+            concept["title"],
+            "Oddly Satisfying ASMR Close-Up",
+            "Perfect Texture ASMR",
+            "This Cut Is Too Satisfying",
+        ],
+        "color_mixing": [
+            concept["title"],
+            "Perfect Paint Blend",
+            "Glossy Color Mixing ASMR",
+            "Watch These Colors Melt Together",
+        ],
+        "exotic_fruit": [
+            concept["title"],
+            "Perfect Fruit Slice ASMR",
+            "The Cleanest Fruit Cut",
+            "Satisfying Tropical Fruit Slice",
+        ],
+        "exotic_cars": [
+            concept["title"],
+            "Supercar Detail in Motion",
+            "Luxury Car Cinematic",
+            "Pure Supercar Detail",
+        ],
+    }[topic]
+    return variants[(now.toordinal() * 12 + slot) % len(variants)]
 
 
 def write_token():
@@ -437,7 +577,7 @@ def generate_pollinations_clip(prompt, work):
     """
     models = free_pollinations_video_models()
     if not models:
-        print("No explicitly free Pollinations video model is available; using Pexels fallback.")
+        print("No explicitly free Pollinations video model is available; trying next source.")
         return None, None
 
     endpoint = "https://gen.pollinations.ai/video/" + quote(prompt, safe="")
@@ -467,7 +607,7 @@ def generate_pollinations_clip(prompt, work):
         except Exception as exc:
             print(f"Pollinations model {model_id} failed: {exc}")
 
-    print("Free Pollinations generation failed; using Pexels fallback.")
+    print("Free Pollinations generation failed; trying next source.")
     return None, None
 
 
@@ -744,8 +884,11 @@ def action_start(path, seconds, hook=False):
 def normalize_clip(src, dst, seconds, hook=False):
     start = action_start(src, seconds, hook)
     video_filter = (
-        "scale=1080:1920:force_original_aspect_ratio=increase,"
-        "crop=1080:1920,fps=30,format=yuv420p"
+        "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,"
+        "crop=1080:1920,"
+        "eq=contrast=1.035:saturation=1.06:brightness=0.005,"
+        "unsharp=5:5:0.28:5:5:0.0,"
+        "fps=30,format=yuv420p"
     )
 
     base = ["ffmpeg", "-y", "-ss", f"{start:.2f}", "-i", str(src)]
@@ -775,49 +918,145 @@ def normalize_clip(src, dst, seconds, hook=False):
 
 def make_vibe_audio(topic, duration, work):
     """
-    Create an original low-volume sound bed with FFmpeg.
-    It is synthesized inside this workflow rather than downloaded from a song library.
-    Stock-clip audio is kept when it exists, so cutting/engine sounds can still come through.
+    Generate a subtle original sound bed inside FFmpeg.
+    Profiles are tuned to support the visual instead of sounding like a generic tone.
     """
     profiles = {
-        "asmr": {"freq": 174, "noise": "pink", "amp": 0.010, "mix": 0.22},
-        "color_mixing": {"freq": 220, "noise": "pink", "amp": 0.011, "mix": 0.20},
-        "exotic_fruit": {"freq": 330, "noise": "white", "amp": 0.007, "mix": 0.17},
-        "exotic_cars": {"freq": 55, "noise": "brown", "amp": 0.013, "mix": 0.28},
+        "asmr": {"base": 174, "air": 720, "noise": "pink", "amp": 0.008, "mix": 0.18},
+        "color_mixing": {"base": 196, "air": 520, "noise": "pink", "amp": 0.009, "mix": 0.17},
+        "exotic_fruit": {"base": 246, "air": 980, "noise": "white", "amp": 0.006, "mix": 0.16},
+        "exotic_cars": {"base": 55, "air": 165, "noise": "brown", "amp": 0.011, "mix": 0.22},
     }
     p = profiles[topic]
     out = work / "vibe.m4a"
-    fade_out = max(0.0, duration - 0.45)
+    fade_out = max(0.0, duration - 0.35)
 
     run([
         "ffmpeg", "-y",
         "-f", "lavfi", "-i",
-        f"sine=frequency={p['freq']}:sample_rate=44100:duration={duration}",
+        f"sine=frequency={p['base']}:sample_rate=44100:duration={duration}",
+        "-f", "lavfi", "-i",
+        f"sine=frequency={p['air']}:sample_rate=44100:duration={duration}",
         "-f", "lavfi", "-i",
         f"anoisesrc=color={p['noise']}:amplitude={p['amp']}:sample_rate=44100:duration={duration}",
         "-filter_complex",
         (
-            "[0:a]volume=0.035,lowpass=f=1200[tone];"
-            "[1:a]highpass=f=80,lowpass=f=6500[noise];"
-            "[tone][noise]amix=inputs=2:duration=longest:normalize=0,"
-            f"afade=t=in:st=0:d=0.20,afade=t=out:st={fade_out:.2f}:d=0.45,"
-            "alimiter=limit=0.80[a]"
+            "[0:a]volume=0.025,lowpass=f=900[base];"
+            "[1:a]volume=0.009,highpass=f=180,lowpass=f=2400[air];"
+            "[2:a]highpass=f=90,lowpass=f=7000[texture];"
+            "[base][air][texture]amix=inputs=3:duration=longest:normalize=0,"
+            f"afade=t=in:st=0:d=0.08,afade=t=out:st={fade_out:.2f}:d=0.35,"
+            "alimiter=limit=0.82[a]"
         ),
         "-map", "[a]",
-        "-c:a", "aac", "-b:a", "128k",
+        "-c:a", "aac", "-b:a", "160k",
         str(out)
     ])
     return out, p["mix"]
+
+
+def mix_final_audio(visual, topic, target_duration, work):
+    vibe, vibe_mix = make_vibe_audio(topic, target_duration, work)
+    final = work / "final.mp4"
+
+    if has_audio(visual):
+        run([
+            "ffmpeg", "-y",
+            "-i", str(visual),
+            "-i", str(vibe),
+            "-filter_complex",
+            (
+                "[0:a]highpass=f=45,volume=0.95[original];"
+                f"[1:a]volume={vibe_mix:.2f}[bed];"
+                "[original][bed]amix=inputs=2:duration=first:normalize=0,"
+                "alimiter=limit=0.94[a]"
+            ),
+            "-map", "0:v:0", "-map", "[a]",
+            "-c:v", "copy",
+            "-c:a", "aac", "-b:a", "192k",
+            "-shortest", "-movflags", "+faststart",
+            str(final)
+        ])
+    else:
+        run([
+            "ffmpeg", "-y",
+            "-i", str(visual),
+            "-i", str(vibe),
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-c:v", "copy",
+            "-c:a", "aac", "-b:a", "192k",
+            "-t", str(target_duration),
+            "-shortest", "-movflags", "+faststart",
+            str(final)
+        ])
+
+    return final
+
+
+def make_ai_video(src, topic, work):
+    """
+    AI clips are treated as a continuous hero shot instead of three random crops.
+    Preserve the strongest motion, polish it, then replay a short section to reach
+    a Shorts-friendly length without turning the edit into a choppy montage.
+    """
+    low, high = CONTENT[topic]["duration"]
+    target_duration = min(11, random.randint(low, high))
+    src_duration = media_duration(src)
+    usable = max(3.0, min(src_duration, 6.0))
+
+    hero = work / "ai_hero.mp4"
+    video_filter = (
+        "scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,"
+        "crop=1080:1920,"
+        "eq=contrast=1.04:saturation=1.07:brightness=0.004,"
+        "unsharp=5:5:0.30:5:5:0.0,"
+        "fps=30,format=yuv420p"
+    )
+
+    if has_audio(src):
+        run([
+            "ffmpeg", "-y", "-i", str(src),
+            "-t", f"{usable:.2f}",
+            "-vf", video_filter,
+            "-af", "highpass=f=45,alimiter=limit=0.95",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "19",
+            "-c:a", "aac", "-b:a", "160k", "-ar", "44100", "-ac", "2",
+            "-movflags", "+faststart",
+            str(hero)
+        ])
+    else:
+        run([
+            "ffmpeg", "-y", "-i", str(src),
+            "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+            "-t", f"{usable:.2f}",
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-vf", video_filter,
+            "-c:v", "libx264", "-preset", "fast", "-crf", "19",
+            "-c:a", "aac", "-b:a", "160k",
+            "-shortest", "-movflags", "+faststart",
+            str(hero)
+        ])
+
+    # Repeat the polished hero shot rather than cutting to unrelated moments.
+    # The final trim makes the ending land inside the same action family as frame one.
+    looped = work / "visual.mp4"
+    run([
+        "ffmpeg", "-y",
+        "-stream_loop", "2", "-i", str(hero),
+        "-t", str(target_duration),
+        "-c", "copy",
+        "-movflags", "+faststart",
+        str(looped)
+    ])
+
+    return mix_final_audio(looped, topic, target_duration, work), target_duration
 
 
 def make_video(clips, topic, work):
     low, high = CONTENT[topic]["duration"]
     target_duration = random.randint(low, high)
 
-    # Aggressive retention structure:
-    # 0.7–1.0s hook -> two satisfying shots -> repeat hook at the end.
-    # Repeating the opening shot helps the Short loop naturally.
-    hook_seconds = random.uniform(0.70, 1.00)
+    hook_seconds = random.uniform(0.65, 0.95)
     body_total = max(2.0, target_duration - (hook_seconds * 2))
     body_seconds = body_total / max(1, len(clips) - 1)
 
@@ -828,9 +1067,7 @@ def make_video(clips, topic, work):
         normalize_clip(src, dst, seconds, hook=(index == 1))
         normalized.append(dst)
 
-    # Finish on the same visual hook used at the start so replay feels continuous.
     sequence = normalized + [normalized[0]]
-
     concat_file = work / "concat.txt"
     concat_file.write_text(
         "\n".join(f"file '{path.as_posix()}'" for path in sequence),
@@ -847,28 +1084,7 @@ def make_video(clips, topic, work):
         str(visual)
     ])
 
-    vibe, vibe_mix = make_vibe_audio(topic, target_duration, work)
-    final = work / "final.mp4"
-    run([
-        "ffmpeg", "-y",
-        "-i", str(visual),
-        "-i", str(vibe),
-        "-filter_complex",
-        (
-            "[0:a]volume=1.0[original];"
-            f"[1:a]volume={vibe_mix:.2f}[bed];"
-            "[original][bed]amix=inputs=2:duration=first:normalize=0,"
-            "alimiter=limit=0.95[a]"
-        ),
-        "-map", "0:v:0",
-        "-map", "[a]",
-        "-c:v", "copy",
-        "-c:a", "aac", "-b:a", "160k",
-        "-shortest", "-movflags", "+faststart",
-        str(final)
-    ])
-
-    return final, target_duration
+    return mix_final_audio(visual, topic, target_duration, work), target_duration
 
 
 def upload(yt, path, title, description, tags):
@@ -906,29 +1122,52 @@ def main():
     scores = trend_scores(current_titles)
     topic, concept = choose_scheduled_concept()
 
-    title = concept["title"]
+    title = polished_title(topic, concept)
     hashtags = CONTENT[topic]["hashtags"]
 
     with tempfile.TemporaryDirectory() as td:
         work = Path(td)
 
-        ai_clip, ai_model = generate_pollinations_clip(concept["prompt"], work)
+        prompt_variants = build_ai_prompts(topic, concept)
+        ai_clip = None
+        ai_model = None
+        source_type = None
+        used_prompt = prompt_variants[0]
 
+        # 1) Pollinations: only explicitly zero-price video models.
+        for attempt, ai_prompt in enumerate(prompt_variants, start=1):
+            candidate, model = generate_pollinations_clip(ai_prompt, work)
+            if not candidate:
+                break
+            if video_quality_check(candidate, f"pollinations_attempt_{attempt}"):
+                ai_clip, ai_model = candidate, model
+                source_type = "pollinations_ai"
+                used_prompt = ai_prompt
+                break
+            print(f"Pollinations attempt {attempt} failed quality gate.")
+
+        # 2) Replicate Try-for-Free. Retry once only when a generated clip is poor.
+        if not ai_clip:
+            for attempt, ai_prompt in enumerate(prompt_variants, start=1):
+                candidate, model = generate_replicate_clip(ai_prompt, work)
+                if not candidate:
+                    break
+                if video_quality_check(candidate, f"replicate_attempt_{attempt}"):
+                    ai_clip, ai_model = candidate, model
+                    source_type = "replicate_ai"
+                    used_prompt = ai_prompt
+                    break
+                print(f"Replicate attempt {attempt} failed quality gate.")
+
+        # 3) Reliable licensed-stock fallback keeps the publishing schedule alive.
         if ai_clip:
-            clips = [ai_clip, ai_clip, ai_clip]
             credits = []
-            source_type = "pollinations_ai"
+            final, duration = make_ai_video(ai_clip, topic, work)
         else:
-            ai_clip, ai_model = generate_replicate_clip(concept["prompt"], work)
-            if ai_clip:
-                clips = [ai_clip, ai_clip, ai_clip]
-                credits = []
-                source_type = "replicate_ai"
-            else:
-                clips, credits = download_clips(concept, work, wanted=3)
-                source_type = "pexels"
-
-        final, duration = make_video(clips, topic, work)
+            clips, credits = download_clips(concept, work, wanted=3)
+            source_type = "pexels"
+            used_prompt = concept["prompt"]
+            final, duration = make_video(clips, topic, work)
 
         if source_type in ("pollinations_ai", "replicate_ai"):
             provider = "Pollinations" if source_type == "pollinations_ai" else "Replicate"
@@ -965,7 +1204,7 @@ def main():
         "video_id": video_id,
         "topic": topic,
         "title": title,
-        "creative_prompt": concept["prompt"],
+        "creative_prompt": used_prompt,
         "source": source_type,
         "ai_model": ai_model,
         "searches": concept["searches"],

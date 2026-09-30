@@ -1,1 +1,1 @@
-Generate TikTok authorization launcher with user.info.basic, video.upload, and video.publish.
+Generate fresh TikTok direct-post authorization launcher with video.publish. Attempt fresh.

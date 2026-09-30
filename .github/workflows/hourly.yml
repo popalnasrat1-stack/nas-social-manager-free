@@ -45,5 +45,8 @@ jobs:
       - name: Install Python packages
         run: pip install -r requirements.txt
 
+      - name: Syntax check automation
+        run: python -m py_compile src/main.py
+
       - name: Create and upload one Short
         run: python src/main.py

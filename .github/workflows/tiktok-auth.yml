@@ -11,10 +11,6 @@ name: TikTok Authorization
           - start
           - finish
         default: start
-      callback_url:
-        description: "Finish only: paste the full 127.0.0.1 callback URL from your browser"
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -26,6 +22,7 @@ jobs:
     env:
       TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
       TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      TIKTOK_CALLBACK_URL: ${{ secrets.TIKTOK_CALLBACK_URL }}
 
     steps:
       - name: Check out repository
@@ -45,8 +42,6 @@ jobs:
 
       - name: Exchange callback for encrypted TikTok token
         if: ${{ inputs.step == 'finish' }}
-        env:
-          TIKTOK_CALLBACK_URL: ${{ inputs.callback_url }}
         run: python tools/tiktok_oauth.py finish --callback-url "$TIKTOK_CALLBACK_URL"
 
       - name: Store encrypted token bundle

@@ -1,0 +1,61 @@
+name: YouTube Authorization
+
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: "Authorization step"
+        required: true
+        default: "start"
+        type: choice
+        options:
+          - start
+          - finish
+  push:
+    paths:
+      - ".github/youtube-auth-trigger.txt"
+
+permissions:
+  contents: write
+
+jobs:
+  start:
+    if: github.event_name == 'push' || inputs.step == 'start'
+    runs-on: ubuntu-latest
+    env:
+      YOUTUBE_TOKEN_B64: ${{ secrets.YOUTUBE_TOKEN_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests cryptography
+      - name: Create YouTube authorization launcher
+        run: python tools/youtube_oauth.py start
+      - uses: actions/upload-artifact@v4
+        with:
+          name: youtube-authorization-launcher
+          path: youtube_authorize.html
+          retention-days: 1
+
+  finish:
+    if: github.event_name == 'workflow_dispatch' && inputs.step == 'finish'
+    runs-on: ubuntu-latest
+    env:
+      YOUTUBE_TOKEN_B64: ${{ secrets.YOUTUBE_TOKEN_B64 }}
+      YOUTUBE_CALLBACK_URL: ${{ secrets.YOUTUBE_CALLBACK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests cryptography
+      - name: Exchange Google authorization
+        run: python tools/youtube_oauth.py finish
+      - name: Store refreshed YouTube authorization securely
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add youtube_token_encrypted.txt
+          git commit -m "Refresh encrypted YouTube authorization"
+          git push

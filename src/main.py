@@ -23,122 +23,142 @@ TOKEN_B64 = os.getenv("YOUTUBE_TOKEN_B64", "")
 # so the publishing schedule stays reliable.
 CONTENT = {
     "asmr": {
-        "trend_keywords": ["asmr", "satisfying", "relaxing", "soap", "sand", "texture", "macro"],
-        "hashtags": ["#Shorts", "#ASMR", "#Satisfying"],
-        "duration": (9, 13),
+        "trend_keywords": ["asmr", "satisfying", "oddly satisfying", "soap", "sand", "slime", "texture", "macro"],
+        "hashtags": ["#Shorts", "#ASMR", "#Satisfying", "#OddlySatisfying"],
+        "duration": (8, 11),
         "concepts": [
             {
-                "title": "Soap Cutting ASMR",
-                "prompt": "Extreme macro ASMR of a crisp soap block being sliced cleanly, bright texture, satisfying fragments, studio lighting, action begins immediately, tight framing, seamless rhythm.",
+                "title": "The Cleanest Soap Cut",
+                "prompt": "Extreme macro of a bright crisp soap block already being shaved into thin perfect curls in frame one, razor-clean edges, vivid texture, tiny fragments falling, premium studio light, no setup, continuous satisfying motion, seamless replay ending.",
                 "searches": [
-                    "soap cutting close up",
-                    "satisfying soap cutting",
-                    "soap slicing macro",
-                    "soap asmr"
+                    "soap cutting satisfying close up",
+                    "soap shaving macro",
+                    "soap slicing asmr",
+                    "oddly satisfying soap"
                 ],
             },
             {
-                "title": "Kinetic Sand ASMR",
-                "prompt": "Macro kinetic sand ASMR with perfectly clean cuts and compression, vivid texture, tight framing, immediate motion, no setup, hypnotic satisfying rhythm.",
+                "title": "Perfect Kinetic Sand Slice",
+                "prompt": "Macro kinetic sand already under the blade in frame one, one impossibly clean slice followed by smooth compression, sharp geometric edges, rich texture, high contrast, hypnotic continuous motion, no hands blocking the action.",
                 "searches": [
-                    "kinetic sand cutting close up",
-                    "kinetic sand satisfying",
-                    "sand asmr macro",
-                    "satisfying sand"
+                    "kinetic sand cutting satisfying",
+                    "kinetic sand slicing close up",
+                    "sand cutting asmr",
+                    "oddly satisfying sand"
                 ],
             },
             {
-                "title": "Visual ASMR Close-Up",
-                "prompt": "Ultra-close visual ASMR of glossy material folding and stretching, clean background, controlled movement, rich texture, immediate action, hypnotic loop.",
+                "title": "Glossy Slime Fold ASMR",
+                "prompt": "Ultra-close glossy slime fold with a large bubble stretching and collapsing smoothly, action already happening at frame one, reflective texture, clean background, slow elastic movement, satisfying visual payoff before the loop.",
                 "searches": [
-                    "satisfying texture close up",
-                    "slime macro satisfying",
-                    "oddly satisfying macro",
-                    "visual asmr texture"
+                    "slime satisfying close up",
+                    "slime stretching macro",
+                    "glossy slime asmr",
+                    "slime bubble satisfying"
+                ],
+            },
+            {
+                "title": "Perfect Texture Loop",
+                "prompt": "Extreme macro visual ASMR of a glossy soft material being pressed into a perfect repeating pattern, immediate motion, clean symmetry, tactile detail, stable camera, strong first-frame texture, loop ending matches the opening.",
+                "searches": [
+                    "oddly satisfying texture close up",
+                    "satisfying pressing macro",
+                    "visual asmr close up",
+                    "satisfying texture loop"
                 ],
             },
         ],
     },
     "color_mixing": {
-        "trend_keywords": ["paint", "painting", "color", "colour", "mixing", "art", "palette", "acrylic"],
-        "hashtags": ["#Shorts", "#ColorMixing", "#ASMR", "#Art"],
-        "duration": (9, 13),
+        "trend_keywords": ["paint", "painting", "color", "colour", "mixing", "art", "palette", "acrylic", "pour"],
+        "hashtags": ["#Shorts", "#ColorMixing", "#ASMR", "#Art", "#Satisfying"],
+        "duration": (8, 11),
         "concepts": [
             {
-                "title": "Palette Knife Color Mixing",
-                "prompt": "Extreme macro shot of thick cobalt blue and pearl white paint being folded together with a steel palette knife, glossy texture, studio lighting, satisfying slow movement, action starts instantly.",
+                "title": "Watch These Colors Transform",
+                "prompt": "Extreme macro of cobalt blue and pearl white thick paint already folding together under a steel palette knife in frame one, dramatic color contrast, glossy ridges, fast first transformation, then smooth controlled blending into a clean icy blue.",
                 "searches": [
                     "paint mixing palette knife close up",
-                    "blue white paint mixing",
-                    "palette knife paint mixing",
-                    "paint texture close up"
+                    "blue white paint mixing satisfying",
+                    "palette knife paint macro",
+                    "acrylic paint mixing close up"
                 ],
             },
             {
-                "title": "Acrylic Color Mixing ASMR",
-                "prompt": "Macro acrylic paint mixing with vivid red, yellow and white pigments blending into a smooth gradient, palette knife scraping through thick glossy paint, crisp studio close-up.",
+                "title": "Neon Paint Scrape",
+                "prompt": "Macro neon magenta and electric yellow acrylic paint scraped together in one clean palette-knife pass, immediate high-contrast motion, thick glossy paint, vivid orange gradient reveal, premium studio lighting, no setup.",
                 "searches": [
-                    "acrylic paint mixing close up",
-                    "color mixing paint",
-                    "artist mixing acrylic paint",
-                    "palette knife acrylic"
+                    "neon paint mixing",
+                    "acrylic paint scrape close up",
+                    "bright color mixing paint",
+                    "palette knife satisfying paint"
                 ],
             },
             {
-                "title": "Satisfying Paint Blend",
-                "prompt": "Rich purple and metallic silver paint slowly blending under a palette knife, glossy ridges, extreme macro texture, clean dark background, controlled satisfying motion.",
+                "title": "Gold and Black Paint Blend",
+                "prompt": "Extreme macro metallic gold and deep black paint being folded together from the first frame, reflective metallic streaks, luxurious glossy ridges, strong contrast, slow controlled palette-knife movement, dramatic satisfying reveal.",
                 "searches": [
-                    "purple paint mixing",
-                    "metallic paint palette knife",
-                    "paint mixing macro",
-                    "palette knife painting close up"
+                    "gold black paint mixing",
+                    "metallic paint mixing close up",
+                    "palette knife gold paint",
+                    "paint texture macro"
+                ],
+            },
+            {
+                "title": "Rainbow Acrylic Pour",
+                "prompt": "Vertical macro acrylic pour with bright cyan, magenta, yellow and white already flowing together in frame one, clean marbling, smooth liquid motion, vivid high-contrast color cells, no empty setup, beautiful loopable finish.",
+                "searches": [
+                    "acrylic pour close up",
+                    "fluid art paint pouring",
+                    "rainbow paint pour",
+                    "color pour satisfying"
                 ],
             },
         ],
     },
     "exotic_fruit": {
-        "trend_keywords": ["fruit", "food", "cutting", "mango", "pineapple", "papaya", "dragon fruit", "tropical"],
-        "hashtags": ["#Shorts", "#FruitCutting", "#ASMR", "#Satisfying"],
-        "duration": (9, 13),
+        "trend_keywords": ["fruit", "food", "cutting", "mango", "pineapple", "pomegranate", "dragon fruit", "tropical"],
+        "hashtags": ["#Shorts", "#FruitCutting", "#ASMR", "#Satisfying", "#Food"],
+        "duration": (8, 11),
         "concepts": [
             {
-                "title": "Dragon Fruit Cutting ASMR",
-                "prompt": "Macro ASMR shot of a chilled dragon fruit being sliced open with a razor-sharp knife, vivid pink skin and white seeded flesh, clean cutting sounds, black background, immediate first cut.",
+                "title": "Dragon Fruit Reveal",
+                "prompt": "Macro chilled dragon fruit with the blade already entering the vivid pink skin in frame one, one clean cut revealing bright white seeded flesh immediately, juicy texture, black background, tight framing, satisfying reveal and loop.",
                 "searches": [
-                    "knife cutting dragon fruit close up",
-                    "dragon fruit sliced with knife",
-                    "pitaya cutting close up",
+                    "dragon fruit cutting close up",
+                    "pitaya slicing knife",
+                    "dragon fruit sliced macro",
+                    "exotic fruit cutting"
+                ],
+            },
+            {
+                "title": "Perfect Mango Cubes",
+                "prompt": "Extreme close-up ripe mango already being scored into perfect cubes in frame one, glossy golden flesh, crisp knife motion, then the mango cheek flips outward for an instant geometric reveal, bright studio light.",
+                "searches": [
+                    "mango cutting cubes close up",
+                    "mango slicing knife macro",
+                    "mango hedgehog cut",
+                    "fruit cutting satisfying"
+                ],
+            },
+            {
+                "title": "Pineapple Spiral Cut",
+                "prompt": "Macro ripe pineapple being peeled and spiral-cut with precise knife work already underway in frame one, bright yellow flesh, crisp texture, fast satisfying transformation, tight close-up, no setup.",
+                "searches": [
+                    "pineapple cutting close up",
+                    "pineapple peeling knife",
+                    "pineapple slicing satisfying",
                     "fruit knife cutting macro"
                 ],
             },
             {
-                "title": "Mango Cutting ASMR",
-                "prompt": "Juicy ripe mango cut into perfect cubes in extreme close-up, glossy golden flesh, clean knife work, bright studio lighting, satisfying first cut immediately.",
+                "title": "Pomegranate Reveal",
+                "prompt": "Extreme macro pomegranate already being opened in frame one, clean knife score then instant reveal of glossy ruby seeds, rich color contrast, juicy texture, controlled hands, premium food-film lighting.",
                 "searches": [
-                    "knife cutting mango close up",
-                    "mango sliced with knife",
-                    "mango cubes knife cutting",
-                    "fruit knife cutting macro"
-                ],
-            },
-            {
-                "title": "Pineapple Cutting ASMR",
-                "prompt": "Extreme close-up of a ripe pineapple being peeled and sliced with fast precise knife work, bright yellow texture, crisp satisfying cuts, action starts in the first frame.",
-                "searches": [
-                    "knife cutting pineapple close up",
-                    "pineapple sliced with knife",
-                    "pineapple peeling knife close up",
-                    "fruit knife cutting macro"
-                ],
-            },
-            {
-                "title": "Exotic Fruit Cutting ASMR",
-                "prompt": "A colorful exotic tropical fruit cut open in macro close-up, unusual interior revealed instantly, vivid color, clean knife motion, satisfying texture and seamless pacing.",
-                "searches": [
-                    "exotic fruit cutting close up",
-                    "tropical fruit cutting",
-                    "rare fruit cutting",
-                    "fruit slicing macro"
+                    "pomegranate cutting close up",
+                    "pomegranate opening",
+                    "pomegranate seeds macro",
+                    "fruit cutting close up"
                 ],
             },
         ],
@@ -146,11 +166,11 @@ CONTENT = {
     "exotic_cars": {
         "trend_keywords": ["car", "cars", "supercar", "sports car", "luxury car", "automotive", "engine"],
         "hashtags": ["#Shorts", "#Supercars", "#ExoticCars", "#Cars"],
-        "duration": (12, 16),
+        "duration": (10, 13),
         "concepts": [
             {
                 "title": "Supercar Night Run",
-                "prompt": "Cinematic vertical rolling shot of an exotic supercar moving at night, low camera angle, headlights and glossy reflections, wheel motion, immediate speed in frame one, premium commercial look.",
+                "prompt": "Cinematic vertical rolling shot of an exotic supercar already moving fast in frame one at night, low camera angle, headlights and glossy reflections, strong wheel motion, premium commercial look.",
                 "searches": [
                     "supercar driving road night",
                     "exotic sports car driving",

@@ -342,27 +342,27 @@ def polished_title(topic, concept):
     variants = {
         "asmr": [
             concept["title"],
-            "Oddly Satisfying ASMR Close-Up",
-            "Perfect Texture ASMR",
-            "This Cut Is Too Satisfying",
+            "The Cleanest Cut You'll See Today",
+            "This Is Ridiculously Satisfying",
+            "Wait for the Perfect Finish",
         ],
         "color_mixing": [
             concept["title"],
-            "Perfect Paint Blend",
-            "Glossy Color Mixing ASMR",
-            "Watch These Colors Melt Together",
+            "Wait for the Color Change",
+            "This Paint Blend Is Too Smooth",
+            "Watch the Colors Transform",
         ],
         "exotic_fruit": [
             concept["title"],
-            "Perfect Fruit Slice ASMR",
-            "The Cleanest Fruit Cut",
-            "Satisfying Tropical Fruit Slice",
+            "Wait Until This Fruit Opens",
+            "The Cleanest Fruit Cut Today",
+            "That First Slice Is Perfect",
         ],
         "exotic_cars": [
             concept["title"],
-            "Supercar Detail in Motion",
-            "Luxury Car Cinematic",
-            "Pure Supercar Detail",
+            "This Supercar Shot Is Pure Cinema",
+            "Luxury in Motion",
+            "One Perfect Supercar Moment",
         ],
     }[topic]
     return variants[(now.toordinal() * 12 + slot) % len(variants)]
@@ -1107,7 +1107,7 @@ def make_video(clips, topic, work):
     low, high = CONTENT[topic]["duration"]
     target_duration = random.randint(low, high)
 
-    hook_seconds = random.uniform(0.65, 0.95)
+    hook_seconds = random.uniform(0.48, 0.72)
     body_total = max(2.0, target_duration - (hook_seconds * 2))
     body_seconds = body_total / max(1, len(clips) - 1)
 

@@ -37,16 +37,26 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install FFmpeg
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-
       - name: Install Python packages
         run: pip install -r requirements.txt
 
       - name: Syntax check automation
         run: python -m py_compile src/main.py
+
+      - name: Check YouTube authorization
+        run: |
+          python - <<'PY'
+          from src.main import youtube_upload_client
+          youtube_upload_client()
+          print("YouTube authorization is valid.")
+          PY
+
+      - name: Install FFmpeg if needed
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
 
       - name: Create and upload one Short
         run: python src/main.py

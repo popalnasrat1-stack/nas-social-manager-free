@@ -351,16 +351,47 @@ def polished_title(topic, concept):
 def write_token():
     if not TOKEN_B64:
         raise RuntimeError("YOUTUBE_TOKEN_B64 secret is missing.")
-    token = base64.b64decode(TOKEN_B64).decode("utf-8")
-    Path("youtube_token.json").write_text(token, encoding="utf-8")
+
+    legacy = base64.b64decode(TOKEN_B64).decode("utf-8")
+    encrypted_path = Path("youtube_token_encrypted.txt")
+
+    if encrypted_path.exists():
+        try:
+            import hashlib
+            from cryptography.fernet import Fernet
+
+            legacy_payload = json.loads(legacy)
+            client_secret = str(legacy_payload.get("client_secret") or "").strip()
+            if not client_secret:
+                raise RuntimeError("Existing YouTube OAuth configuration has no client_secret.")
+
+            key = base64.urlsafe_b64encode(
+                hashlib.sha256(client_secret.encode("utf-8")).digest()
+            )
+            encrypted = encrypted_path.read_text(encoding="utf-8").strip()
+            token = Fernet(key).decrypt(encrypted.encode("ascii")).decode("utf-8")
+            Path("youtube_token.json").write_text(token, encoding="utf-8")
+            print("Using refreshed encrypted YouTube authorization.")
+            return
+        except Exception as exc:
+            raise RuntimeError(f"Could not decrypt refreshed YouTube authorization: {exc}")
+
+    Path("youtube_token.json").write_text(legacy, encoding="utf-8")
 
 
 def youtube_upload_client():
     write_token()
     scopes = ["https://www.googleapis.com/auth/youtube.upload"]
     creds = Credentials.from_authorized_user_file("youtube_token.json", scopes)
-    if creds.expired and creds.refresh_token:
-        creds.refresh(GoogleRequest())
+    try:
+        if creds.expired and creds.refresh_token:
+            creds.refresh(GoogleRequest())
+    except Exception as exc:
+        if "invalid_grant" in str(exc).lower() or "expired or revoked" in str(exc).lower():
+            raise RuntimeError(
+                "YouTube authorization expired or was revoked. Run the YouTube Authorization workflow to reconnect the channel."
+            ) from exc
+        raise
     if not creds.valid:
         raise RuntimeError("YouTube upload token is invalid.")
     return build("youtube", "v3", credentials=creds)
